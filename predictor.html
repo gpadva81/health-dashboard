@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weight Predictor — The Cut</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+:root {
+  --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a; --text: #e4e4e7;
+  --muted: #71717a; --red: #ef4444; --green: #22c55e; --blue: #3b82f6;
+  --purple: #a855f7; --orange: #f97316; --cyan: #06b6d4; --yellow: #eab308;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+
+.header { padding:20px 24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+.header h1 { font-size:24px; font-weight:800; }
+.header h1 span { color:var(--red); }
+.header .meta { font-size:12px; color:var(--muted); }
+.header a { color:var(--blue); text-decoration:none; }
+
+.kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; padding:16px 24px; }
+.kpi { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
+.kpi .label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
+.kpi .value { font-size:28px; font-weight:800; margin:4px 0; }
+.kpi .sub { font-size:12px; color:var(--muted); }
+
+.chart-section { padding:12px 24px; }
+.chart-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
+.chart-card h3 { font-size:14px; margin-bottom:12px; color:var(--muted); }
+.chart-card canvas { width:100%!important; }
+
+.deficit-table-wrap { padding:12px 24px; }
+.deficit-table { width:100%; border-collapse:collapse; font-size:13px; background:var(--card); border-radius:10px; overflow:hidden; }
+.deficit-table th { background:#1e2130; padding:10px 12px; text-align:left; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; }
+.deficit-table td { padding:8px 12px; border-top:1px solid var(--border); }
+.deficit-table tr:hover { background:#1e2130; }
+.deficit-table .good { color:var(--green); }
+.deficit-table .warn { color:var(--yellow); }
+.deficit-table .bad { color:var(--red); }
+.deficit-table .surplus { background:rgba(239,68,68,0.1); }
+
+.controls { padding:12px 24px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+.control-group { display:flex; align-items:center; gap:6px; }
+.control-group label { font-size:12px; color:var(--muted); }
+.control-group input, .control-group select { background:var(--card); border:1px solid var(--border); color:var(--text); padding:6px 10px; border-radius:6px; font-size:13px; }
+
+@media(max-width:600px) {
+  .kpis { grid-template-columns:repeat(2,1fr); }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>📉 <span>Weight Predictor</span> & Deficit Tracker</h1>
+    <div class="meta"><a href="index.html">← Back to Dashboard</a> · Auto-synced from Cronometer & Garmin</div>
+  </div>
+  <div style="text-align:right;">
+    <div id="weeksToGoal" style="font-size:22px;font-weight:800;color:var(--green);"></div>
+    <div style="font-size:11px;color:var(--muted);">to goal weight (215 lbs)</div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="control-group">
+    <label>TDEE:</label>
+    <input type="number" id="tdee" value="2800" min="1500" max="5000" step="50">
+  </div>
+  <div class="control-group">
+    <label>Goal:</label>
+    <input type="number" id="goalWeight" value="215" min="150" max="300" step="1">
+  </div>
+  <div class="control-group">
+    <label>Target loss/wk:</label>
+    <select id="lossRate">
+      <option value="1">1 lb/wk</option>
+      <option value="1.5">1.5 lb/wk</option>
+      <option value="2" selected>2 lb/wk</option>
+      <option value="2.5">2.5 lb/wk</option>
+    </select>
+  </div>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="label">Current Weight</div><div class="value" id="k-current">—</div><div class="sub" id="k-current-sub"></div></div>
+  <div class="kpi"><div class="label">Lbs to Lose</div><div class="value" id="k-tolose" style="color:var(--orange)">—</div><div class="sub" id="k-tolose-sub"></div></div>
+  <div class="kpi"><div class="label">Avg Daily Deficit</div><div class="value" id="k-deficit">—</div><div class="sub" id="k-deficit-sub"></div></div>
+  <div class="kpi"><div class="label">Avg Weekly Loss</div><div class="value" id="k-weekloss">—</div><div class="sub" id="k-weekloss-sub"></div></div>
+  <div class="kpi"><div class="label">Predicted Goal Date</div><div class="value" id="k-goaldate" style="color:var(--green);font-size:20px;">—</div><div class="sub" id="k-goaldate-sub"></div></div>
+  <div class="kpi"><div class="label">Race Day Weight</div><div class="value" id="k-raceweight" style="color:var(--cyan)">—</div><div class="sub">Sept 27, 2026</div></div>
+</div>
+
+<div class="chart-section">
+  <div class="chart-card" style="height:350px;"><h3>📉 Weight: Actual vs Predicted</h3><canvas id="predictionChart"></canvas></div>
+  <div class="chart-card" style="height:280px;"><h3>🔥 Daily Calorie Deficit / Surplus</h3><canvas id="deficitChart"></canvas></div>
+  <div class="chart-card" style="height:280px;"><h3>📊 Cumulative Deficit (lbs equivalent)</h3><canvas id="cumulativeChart"></canvas></div>
+</div>
+
+<div class="deficit-table-wrap">
+  <h3 style="font-size:14px;color:var(--muted);margin-bottom:10px;">📋 Daily Deficit Log (last 30 days)</h3>
+  <table class="deficit-table">
+    <thead><tr>
+      <th>Date</th><th>Weight</th><th>Calories In</th><th>TDEE Est</th><th>Deficit</th><th>Cumulative</th><th>Status</th>
+    </tr></thead>
+    <tbody id="deficitTableBody"></tbody>
+  </table>
+</div>
+
+<script>
+let allData = [];
+let charts = {};
+
+async function loadData() {
+  const resp = await fetch('data.json');
+  allData = await resp.json();
+  render();
+}
+
+function render() {
+  const TDEE = parseInt(document.getElementById('tdee').value);
+  const GOAL = parseInt(document.getElementById('goalWeight').value);
+  const RATE = parseFloat(document.getElementById('lossRate').value);
+  
+  // Find weights and calories
+  const weights = allData.filter(d => d.weight);
+  const withCal = allData.filter(d => d.calories);
+  const currentW = weights.length ? weights[weights.length-1].weight : null;
+  const startW = 267;
+  
+  // Weeks to goal
+  if (currentW && currentW > GOAL) {
+    const lbs = currentW - GOAL;
+    const weeks = Math.ceil(lbs / RATE);
+    document.getElementById('weeksToGoal').textContent = `${weeks} weeks`;
+    document.getElementById('k-tolose').textContent = lbs.toFixed(1);
+    document.getElementById('k-tolose-sub').textContent = `${GOAL} lbs goal`;
+    
+    // Goal date
+    const goalDate = new Date();
+    goalDate.setDate(goalDate.getDate() + weeks * 7);
+    document.getElementById('k-goaldate').textContent = goalDate.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+    document.getElementById('k-goaldate-sub').textContent = `${weeks} weeks from now`;
+  }
+  
+  document.getElementById('k-current').textContent = currentW ? currentW.toFixed(1) : '—';
+  document.getElementById('k-current-sub').textContent = currentW ? `${(startW - currentW).toFixed(1)} lbs lost` : '';
+  
+  // Calculate deficits for each logged day
+  let cumDeficit = 0;
+  const deficitData = [];
+  
+  for (const day of allData) {
+    const deficit = day.calories ? TDEE - day.calories : null;
+    if (deficit !== null) {
+      cumDeficit += deficit;
+    }
+    deficitData.push({
+      date: day.date,
+      weight: day.weight || null,
+      calories: day.calories || null,
+      tdee: TDEE,
+      deficit: deficit,
+      cumDeficit: day.calories ? cumDeficit : null,
+      exercises: day.exercises || [],
+      exercise_calories: day.exercise_calories || 0
+    });
+  }
+  
+  // Avg deficit (logged days only)
+  const loggedDeficits = deficitData.filter(d => d.deficit !== null);
+  const avgDeficit = loggedDeficits.length ? loggedDeficits.reduce((a,b) => a + b.deficit, 0) / loggedDeficits.length : 0;
+  document.getElementById('k-deficit').textContent = avgDeficit > 0 ? Math.round(avgDeficit).toLocaleString() : '—';
+  document.getElementById('k-deficit-sub').textContent = avgDeficit > 0 ? `${Math.round(avgDeficit)} cal/day` : '';
+  if (avgDeficit > 0) {
+    document.getElementById('k-deficit').style.color = avgDeficit >= 800 ? 'var(--green)' : avgDeficit >= 500 ? 'var(--yellow)' : 'var(--red)';
+  }
+  
+  // Weekly loss rate from actual weight data
+  if (weights.length >= 2) {
+    const recent = weights.slice(-14); // last 14 weight entries
+    if (recent.length >= 2) {
+      const first = recent[0];
+      const last = recent[recent.length-1];
+      const daysDiff = (new Date(last.date) - new Date(first.date)) / (1000*60*60*24);
+      const weeksDiff = daysDiff / 7;
+      const lossRate = weeksDiff > 0 ? (first.weight - last.weight) / weeksDiff : 0;
+      document.getElementById('k-weekloss').textContent = lossRate.toFixed(1);
+      document.getElementById('k-weekloss-sub').textContent = `lbs/week (14-day avg)`;
+      document.getElementById('k-weekloss').style.color = lossRate >= 1.5 ? 'var(--green)' : lossRate >= 0.5 ? 'var(--yellow)' : 'var(--red)';
+      
+      // Predicted race day weight
+      const raceDate = new Date('2026-09-27');
+      const weeksToRace = (raceDate - new Date()) / (1000*60*60*24*7);
+      const raceWeight = currentW - (RATE * weeksToRace);
+      document.getElementById('k-raceweight').textContent = Math.max(GOAL, raceWeight).toFixed(0);
+    }
+  }
+  
+  // Charts
+  renderPredictionChart(deficitData, GOAL, RATE);
+  renderDeficitChart(deficitData);
+  renderCumulativeChart(deficitData);
+  renderTable(deficitData);
+}
+
+function destroyChart(id) { if (charts[id]) charts[id].destroy(); }
+
+function renderPredictionChart(data, goal, rate) {
+  destroyChart('pred');
+  const weights = data.filter(d => d.weight);
+  
+  // Build prediction line from start
+  const startDate = new Date('2026-04-11');
+  const startW = 267;
+  const predLine = [];
+  for (let w = 0; w < 52; w++) {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + w * 7);
+    const predictedW = Math.max(goal, startW - rate * w);
+    predLine.push({x: d.toISOString().slice(0,10), y: predictedW});
+    if (predictedW <= goal) break;
+  }
+  
+  const ctx = document.getElementById('predictionChart');
+  charts.pred = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: 'Actual Weight',
+          data: weights.map(d => ({x: d.date, y: d.weight})),
+          borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)',
+          fill: true, tension: 0.3, pointRadius: 2, borderWidth: 2
+        },
+        {
+          label: `Target (${rate} lb/wk)`,
+          data: predLine,
+          borderColor: '#22c55e', borderDash: [6,4], pointRadius: 0, borderWidth: 2
+        },
+        {
+          label: `Goal (${goal})`,
+          data: predLine.map(d => ({x: d.x, y: goal})),
+          borderColor: '#ef4444', borderDash: [3,3], pointRadius: 0, borderWidth: 1
+        },
+        {
+          label: 'Race Day',
+          data: [{x: '2026-09-27', y: weights.length ? weights[0].weight : 270}, {x: '2026-09-27', y: goal}],
+          borderColor: '#eab308', borderDash: [2,2], pointRadius: 0, borderWidth: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, labels: { color: '#71717a', font: {size:10} } } },
+      scales: {
+        x: { type: 'time', time: {unit:'week'}, grid: {color:'#2a2d3a'}, ticks: {color:'#71717a',font:{size:10}} },
+        y: { grid: {color:'#2a2d3a'}, ticks: {color:'#71717a',font:{size:10}}, suggestedMin: goal - 5 }
+      }
+    }
+  });
+}
+
+function renderDeficitChart(data) {
+  destroyChart('deficit');
+  const d = data.filter(e => e.deficit !== null).slice(-60);
+  const ctx = document.getElementById('deficitChart');
+  charts.deficit = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      datasets: [{
+        label: 'Calorie Deficit',
+        data: d.map(e => ({x: e.date, y: e.deficit})),
+        backgroundColor: d.map(e => e.deficit >= 800 ? 'rgba(34,197,94,0.8)' : e.deficit >= 500 ? 'rgba(234,179,8,0.8)' : e.deficit > 0 ? 'rgba(249,115,22,0.8)' : 'rgba(239,68,68,0.8)'),
+        borderRadius: 3
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {display:false},
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const v = ctx.raw.y;
+              return v >= 0 ? `Deficit: ${v.toLocaleString()} cal` : `SURPLUS: ${Math.abs(v).toLocaleString()} cal`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { type:'time', time:{unit:'day'}, grid:{color:'#2a2d3a'}, ticks:{color:'#71717a',font:{size:10}} },
+        y: { grid:{color:'#2a2d3a'}, ticks:{color:'#71717a',font:{size:10}},
+          title: {display:true, text:'Calories', color:'#71717a'}
+        }
+      }
+    }
+  });
+}
+
+function renderCumulativeChart(data) {
+  destroyChart('cum');
+  const d = data.filter(e => e.cumDeficit !== null);
+  const ctx = document.getElementById('cumulativeChart');
+  charts.cum = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [{
+        label: 'Cumulative Deficit (lbs)',
+        data: d.map(e => ({x: e.date, y: (e.cumDeficit / 3500).toFixed(1)})),
+        borderColor: '#a855f7', backgroundColor: 'rgba(168,85,247,0.1)',
+        fill: true, tension: 0.3, pointRadius: 1, borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: {display:false} },
+      scales: {
+        x: { type:'time', time:{unit:'week'}, grid:{color:'#2a2d3a'}, ticks:{color:'#71717a',font:{size:10}} },
+        y: { grid:{color:'#2a2d3a'}, ticks:{color:'#71717a',font:{size:10}},
+          title: {display:true, text:'lbs deficit equivalent', color:'#71717a'}
+        }
+      }
+    }
+  });
+}
+
+function renderTable(data) {
+  const recent = data.filter(d => d.calories || d.weight).slice(-30).reverse();
+  const tbody = document.getElementById('deficitTableBody');
+  tbody.innerHTML = recent.map(d => {
+    const surplus = d.deficit !== null && d.deficit < 0;
+    const statusClass = d.deficit === null ? '' : d.deficit >= 800 ? 'good' : d.deficit >= 500 ? 'warn' : d.deficit > 0 ? 'warn' : 'bad';
+    const status = d.deficit === null ? '—' : d.deficit >= 800 ? '🟢 On track' : d.deficit >= 500 ? '🟡 Moderate' : d.deficit > 0 ? '🟠 Low deficit' : '🔴 SURPLUS';
+    return `<tr class="${surplus ? 'surplus' : ''}">
+      <td>${d.date}</td>
+      <td>${d.weight ? d.weight.toFixed(1) : '—'}</td>
+      <td>${d.calories ? d.calories.toLocaleString() : '—'}</td>
+      <td>${d.tdee.toLocaleString()}</td>
+      <td class="${statusClass}">${d.deficit !== null ? (d.deficit >= 0 ? '-' : '+') + Math.abs(d.deficit).toLocaleString() : '—'}</td>
+      <td>${d.cumDeficit !== null ? (d.cumDeficit / 3500).toFixed(1) + ' lbs' : '—'}</td>
+      <td class="${statusClass}">${status}</td>
+    </tr>`;
+  }).join('');
+}
+
+// Event listeners
+['tdee','goalWeight','lossRate'].forEach(id => {
+  document.getElementById(id).addEventListener('change', render);
+});
+
+loadData();
+</script>
+</body>
+</html>

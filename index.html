@@ -79,9 +79,12 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 <div class="header">
   <div>
     <h1>🔥 <span>THE CUT</span> — Live Dashboard</h1>
-    <div class="meta">Auto-synced from Cronometer & Garmin · Last updated: <span id="lastUpdate"></span></div>
+    <div class="meta">Auto-synced from Cronometer & Garmin · Last updated: <span id="lastUpdate"></span> · <a href="predictor.html" style="color:var(--blue)">Weight Predictor →</a></div>
   </div>
-  <div class="race-badge">🏊🚴🏃 Santa Cruz Tri — Sept 27</div>
+  <div style="text-align:right;">
+    <div class="race-badge">🏊🚴🏃 Santa Cruz Tri — Sept 27</div>
+    <div id="weeksToGoal" style="font-size:20px;font-weight:800;color:var(--green);margin-top:6px;"></div>
+  </div>
 </div>
 
 <div class="range-picker">
@@ -94,7 +97,7 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 
 <div class="kpis">
   <div class="kpi"><div class="label">Current Weight</div><div class="value" id="kpi-weight">—</div><div class="change" id="kpi-weight-change"></div></div>
-  <div class="kpi"><div class="label">Goal Weight</div><div class="value" style="color:var(--green)">200</div><div class="change neutral">lbs target</div></div>
+  <div class="kpi"><div class="label">Goal Weight</div><div class="value" style="color:var(--green)">215</div><div class="change neutral">lbs target</div></div>
   <div class="kpi"><div class="label">Avg Calories (7d)</div><div class="value" id="kpi-cal">—</div><div class="change" id="kpi-cal-target"></div></div>
   <div class="kpi"><div class="label">Avg Protein (7d)</div><div class="value" id="kpi-protein">—</div><div class="change" id="kpi-protein-target"></div></div>
   <div class="kpi"><div class="label">Avg Sleep Score</div><div class="value" id="kpi-sleep">—</div><div class="change" id="kpi-sleep-change"></div></div>
@@ -119,7 +122,7 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
     <div class="progress-labels">
       <span>Start: 267 lbs</span>
       <span id="current-weight-label">Current: —</span>
-      <span>Goal: 200 lbs</span>
+      <span>Goal: 215 lbs</span>
     </div>
     <div class="progress-bar">
       <div class="progress-fill" id="progress-fill" style="width:0%;background:linear-gradient(90deg,var(--red),var(--orange),var(--green));"></div>
@@ -229,9 +232,18 @@ function render() {
   }
   document.getElementById('kpi-streak').textContent = streak;
   
+  // Weeks to goal
+  if (currentW && currentW > 215) {
+    const lbsToGo = currentW - 215;
+    const weeksToGo = Math.ceil(lbsToGo / 2);
+    document.getElementById('weeksToGoal').textContent = `${weeksToGo} weeks to goal`;
+  } else if (currentW) {
+    document.getElementById('weeksToGoal').textContent = '🎉 Goal reached!';
+  }
+  
   // Progress bar
   if (currentW) {
-    const pct = Math.min(100, ((startW - currentW) / (startW - 200)) * 100);
+    const pct = Math.min(100, ((startW - currentW) / (startW - 215)) * 100);
     document.getElementById('progress-fill').style.width = Math.max(0,pct) + '%';
     document.getElementById('current-weight-label').textContent = `Current: ${currentW.toFixed(1)} lbs`;
   }
@@ -268,12 +280,12 @@ function renderWeightChart(data) {
   ctx.parentElement.style.height = '250px';
   
   // Goal line
-  const goalData = d.map(e => ({x: e.date, y: 200}));
+  const goalData = d.map(e => ({x: e.date, y: 215}));
   // Target trajectory (2 lbs/week from start)
   const startDate = new Date('2026-04-11');
   const trajData = d.map(e => {
     const weeks = (new Date(e.date) - startDate) / (1000*60*60*24*7);
-    return {x: e.date, y: Math.max(200, 267 - weeks * 2)};
+    return {x: e.date, y: Math.max(215, 267 - weeks * 2)};
   });
   
   charts.weight = new Chart(ctx, {
@@ -282,7 +294,7 @@ function renderWeightChart(data) {
       datasets: [
         { label: 'Weight', data: d.map(e=>({x:e.date,y:e.weight})), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', fill: true, tension: 0.3, pointRadius: 2 },
         { label: 'Target (2 lb/wk)', data: trajData, borderColor: '#22c55e', borderDash: [5,5], pointRadius: 0, borderWidth: 1 },
-        { label: 'Goal (200)', data: goalData, borderColor: '#ef4444', borderDash: [3,3], pointRadius: 0, borderWidth: 1 }
+        { label: 'Goal (215)', data: goalData, borderColor: '#ef4444', borderDash: [3,3], pointRadius: 0, borderWidth: 1 }
       ]
     },
     options: {...commonOpts, plugins: { legend: { display: true, labels: { color: '#71717a', font: { size: 10 } } } }}
