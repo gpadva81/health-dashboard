@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gabriel's Health Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+:root {
+  --bg: #0f1117;
+  --card: #1a1d27;
+  --border: #2a2d3a;
+  --text: #e4e4e7;
+  --muted: #71717a;
+  --red: #ef4444;
+  --green: #22c55e;
+  --blue: #3b82f6;
+  --purple: #a855f7;
+  --orange: #f97316;
+  --cyan: #06b6d4;
+  --yellow: #eab308;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+
+.header { padding:20px 24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+.header h1 { font-size:24px; font-weight:800; }
+.header h1 span { color:var(--red); }
+.header .meta { font-size:12px; color:var(--muted); }
+.header .race-badge { background:linear-gradient(135deg,var(--red),var(--blue)); padding:6px 16px; border-radius:20px; font-size:12px; font-weight:600; }
+
+.range-picker { padding:10px 24px; display:flex; gap:8px; flex-wrap:wrap; }
+.range-btn { background:var(--card); border:1px solid var(--border); color:var(--muted); padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px; }
+.range-btn.active { background:var(--blue); color:white; border-color:var(--blue); }
+
+.kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; padding:12px 24px; }
+.kpi { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
+.kpi .label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
+.kpi .value { font-size:28px; font-weight:800; margin:4px 0; }
+.kpi .change { font-size:12px; }
+.kpi .change.up { color:var(--red); }
+.kpi .change.down { color:var(--green); }
+.kpi .change.neutral { color:var(--muted); }
+
+.charts { display:grid; grid-template-columns:repeat(auto-fit,minmax(400px,1fr)); gap:12px; padding:12px 24px; }
+.chart-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; }
+.chart-card h3 { font-size:14px; margin-bottom:10px; color:var(--muted); }
+.chart-card canvas { width:100%!important; }
+
+.full-width { grid-column:1/-1; }
+
+.recent-log { padding:12px 24px; }
+.recent-log h3 { font-size:14px; color:var(--muted); margin-bottom:10px; }
+.log-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:10px; }
+.log-entry { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px; }
+.log-entry .date { font-size:12px; color:var(--blue); font-weight:600; margin-bottom:6px; }
+.log-entry .stats { font-size:12px; color:var(--text); line-height:1.6; }
+.log-entry .exercise { font-size:11px; color:var(--cyan); margin-top:4px; }
+
+.goal-tracker { padding:12px 24px 24px; }
+.goal-tracker h3 { font-size:14px; color:var(--muted); margin-bottom:10px; }
+.progress-bar-container { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; }
+.progress-labels { display:flex; justify-content:space-between; font-size:12px; margin-bottom:8px; }
+.progress-bar { height:24px; background:#1f2937; border-radius:12px; overflow:hidden; position:relative; }
+.progress-fill { height:100%; border-radius:12px; transition:width 0.5s; }
+.progress-marker { position:absolute; top:-18px; font-size:10px; color:var(--yellow); transform:translateX(-50%); }
+.milestones { display:flex; justify-content:space-between; margin-top:8px; font-size:11px; color:var(--muted); }
+
+@media(max-width:600px) {
+  .charts { grid-template-columns:1fr; }
+  .kpis { grid-template-columns:repeat(2,1fr); }
+  .header h1 { font-size:18px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🔥 <span>THE CUT</span> — Live Dashboard</h1>
+    <div class="meta">Auto-synced from Cronometer & Garmin · Last updated: <span id="lastUpdate"></span></div>
+  </div>
+  <div class="race-badge">🏊🚴🏃 Santa Cruz Tri — Sept 27</div>
+</div>
+
+<div class="range-picker">
+  <button class="range-btn" data-range="7">7D</button>
+  <button class="range-btn" data-range="14">14D</button>
+  <button class="range-btn active" data-range="30">30D</button>
+  <button class="range-btn" data-range="90">90D</button>
+  <button class="range-btn" data-range="all">All</button>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="label">Current Weight</div><div class="value" id="kpi-weight">—</div><div class="change" id="kpi-weight-change"></div></div>
+  <div class="kpi"><div class="label">Goal Weight</div><div class="value" style="color:var(--green)">200</div><div class="change neutral">lbs target</div></div>
+  <div class="kpi"><div class="label">Avg Calories (7d)</div><div class="value" id="kpi-cal">—</div><div class="change" id="kpi-cal-target"></div></div>
+  <div class="kpi"><div class="label">Avg Protein (7d)</div><div class="value" id="kpi-protein">—</div><div class="change" id="kpi-protein-target"></div></div>
+  <div class="kpi"><div class="label">Avg Sleep Score</div><div class="value" id="kpi-sleep">—</div><div class="change" id="kpi-sleep-change"></div></div>
+  <div class="kpi"><div class="label">Days to Race</div><div class="value" id="kpi-race">—</div><div class="change neutral">Sept 27, 2026</div></div>
+  <div class="kpi"><div class="label">Total Lost</div><div class="value" id="kpi-lost">—</div><div class="change" id="kpi-lost-rate"></div></div>
+  <div class="kpi"><div class="label">Logging Streak</div><div class="value" id="kpi-streak">—</div><div class="change neutral">consecutive days</div></div>
+</div>
+
+<div class="charts">
+  <div class="chart-card full-width"><h3>📉 Weight Trend</h3><canvas id="weightChart"></canvas></div>
+  <div class="chart-card"><h3>🔥 Daily Calories</h3><canvas id="calChart"></canvas></div>
+  <div class="chart-card"><h3>💪 Daily Protein (g)</h3><canvas id="proteinChart"></canvas></div>
+  <div class="chart-card"><h3>😴 Sleep Score</h3><canvas id="sleepChart"></canvas></div>
+  <div class="chart-card"><h3>🏃 Exercise Minutes</h3><canvas id="exerciseChart"></canvas></div>
+  <div class="chart-card"><h3>🍽️ Macros Breakdown (7d avg)</h3><canvas id="macroChart"></canvas></div>
+  <div class="chart-card"><h3>❤️ Resting Heart Rate</h3><canvas id="hrChart"></canvas></div>
+</div>
+
+<div class="goal-tracker">
+  <h3>🎯 Weight Loss Progress</h3>
+  <div class="progress-bar-container">
+    <div class="progress-labels">
+      <span>Start: 267 lbs</span>
+      <span id="current-weight-label">Current: —</span>
+      <span>Goal: 200 lbs</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill" style="width:0%;background:linear-gradient(90deg,var(--red),var(--orange),var(--green));"></div>
+    </div>
+    <div class="milestones">
+      <span>267</span><span>Race Day (~227)</span><span>250</span><span>225</span><span>200</span>
+    </div>
+  </div>
+</div>
+
+<div class="recent-log">
+  <h3>📋 Recent Daily Log</h3>
+  <div class="log-grid" id="recentLog"></div>
+</div>
+
+<script>
+let allData = [];
+let charts = {};
+let currentRange = 30;
+
+async function loadData() {
+  const resp = await fetch('data.json');
+  allData = await resp.json();
+  document.getElementById('lastUpdate').textContent = allData.length ? allData[allData.length-1].date : 'N/A';
+  render();
+}
+
+function filterData(days) {
+  if (days === 'all') return allData;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutStr = cutoff.toISOString().slice(0,10);
+  return allData.filter(d => d.date >= cutStr);
+}
+
+function avg(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+
+function render() {
+  const data = filterData(currentRange);
+  const recent7 = filterData(7);
+  
+  // KPIs
+  const weights = allData.filter(d=>d.weight);
+  const currentW = weights.length ? weights[weights.length-1].weight : null;
+  const startW = 267;
+  
+  document.getElementById('kpi-weight').textContent = currentW ? currentW.toFixed(1) : '—';
+  if (currentW) {
+    const lost = startW - currentW;
+    const el = document.getElementById('kpi-weight-change');
+    el.textContent = `${lost >= 0 ? '↓' : '↑'} ${Math.abs(lost).toFixed(1)} lbs from start`;
+    el.className = 'change ' + (lost >= 0 ? 'down' : 'up');
+  }
+  
+  // Calories
+  const cal7 = recent7.filter(d=>d.calories).map(d=>d.calories);
+  document.getElementById('kpi-cal').textContent = cal7.length ? Math.round(avg(cal7)).toLocaleString() : '—';
+  const calTarget = document.getElementById('kpi-cal-target');
+  if (cal7.length) {
+    const a = avg(cal7);
+    calTarget.textContent = a <= 2000 ? '✅ On target' : `⚠️ ${Math.round(a-2000)} over target`;
+    calTarget.className = 'change ' + (a <= 2000 ? 'down' : 'up');
+  }
+  
+  // Protein
+  const prot7 = recent7.filter(d=>d.protein).map(d=>d.protein);
+  document.getElementById('kpi-protein').textContent = prot7.length ? Math.round(avg(prot7)) + 'g' : '—';
+  const protTarget = document.getElementById('kpi-protein-target');
+  if (prot7.length) {
+    const a = avg(prot7);
+    protTarget.textContent = a >= 200 ? '✅ ≥200g target' : `⚠️ ${Math.round(200-a)}g below target`;
+    protTarget.className = 'change ' + (a >= 200 ? 'down' : 'up');
+  }
+  
+  // Sleep
+  const sleep7 = recent7.filter(d=>d.sleep_score).map(d=>d.sleep_score);
+  document.getElementById('kpi-sleep').textContent = sleep7.length ? Math.round(avg(sleep7)) : '—';
+  const sleepEl = document.getElementById('kpi-sleep-change');
+  if (sleep7.length) {
+    const a = avg(sleep7);
+    sleepEl.textContent = a >= 75 ? '✅ Good' : '⚠️ Needs improvement';
+    sleepEl.className = 'change ' + (a >= 75 ? 'down' : 'up');
+  }
+  
+  // Race countdown
+  const raceDate = new Date('2026-09-27');
+  const today = new Date();
+  const daysToRace = Math.ceil((raceDate - today) / (1000*60*60*24));
+  document.getElementById('kpi-race').textContent = daysToRace;
+  
+  // Total lost
+  if (currentW) {
+    const lost = startW - currentW;
+    document.getElementById('kpi-lost').textContent = lost.toFixed(1);
+    const weeks = (new Date() - new Date('2026-04-11')) / (1000*60*60*24*7);
+    const rate = weeks > 0 ? lost / weeks : 0;
+    const rateEl = document.getElementById('kpi-lost-rate');
+    rateEl.textContent = `${rate.toFixed(1)} lbs/week avg`;
+    rateEl.className = 'change ' + (rate >= 1.5 ? 'down' : 'up');
+  }
+  
+  // Streak
+  let streak = 0;
+  for (let i = allData.length - 1; i >= 0; i--) {
+    if (allData[i].calories) streak++;
+    else break;
+  }
+  document.getElementById('kpi-streak').textContent = streak;
+  
+  // Progress bar
+  if (currentW) {
+    const pct = Math.min(100, ((startW - currentW) / (startW - 200)) * 100);
+    document.getElementById('progress-fill').style.width = Math.max(0,pct) + '%';
+    document.getElementById('current-weight-label').textContent = `Current: ${currentW.toFixed(1)} lbs`;
+  }
+  
+  // Charts
+  renderWeightChart(data);
+  renderCalChart(data);
+  renderProteinChart(data);
+  renderSleepChart(data);
+  renderExerciseChart(data);
+  renderMacroChart(recent7);
+  renderHRChart(data);
+  
+  // Recent log
+  renderRecentLog();
+}
+
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); } }
+
+const commonOpts = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { type: 'time', time: { unit: 'day' }, grid: { color: '#2a2d3a' }, ticks: { color: '#71717a', font: { size: 10 } } },
+    y: { grid: { color: '#2a2d3a' }, ticks: { color: '#71717a', font: { size: 10 } } }
+  }
+};
+
+function renderWeightChart(data) {
+  destroyChart('weight');
+  const d = data.filter(e=>e.weight);
+  const ctx = document.getElementById('weightChart');
+  ctx.parentElement.style.height = '250px';
+  
+  // Goal line
+  const goalData = d.map(e => ({x: e.date, y: 200}));
+  // Target trajectory (2 lbs/week from start)
+  const startDate = new Date('2026-04-11');
+  const trajData = d.map(e => {
+    const weeks = (new Date(e.date) - startDate) / (1000*60*60*24*7);
+    return {x: e.date, y: Math.max(200, 267 - weeks * 2)};
+  });
+  
+  charts.weight = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [
+        { label: 'Weight', data: d.map(e=>({x:e.date,y:e.weight})), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', fill: true, tension: 0.3, pointRadius: 2 },
+        { label: 'Target (2 lb/wk)', data: trajData, borderColor: '#22c55e', borderDash: [5,5], pointRadius: 0, borderWidth: 1 },
+        { label: 'Goal (200)', data: goalData, borderColor: '#ef4444', borderDash: [3,3], pointRadius: 0, borderWidth: 1 }
+      ]
+    },
+    options: {...commonOpts, plugins: { legend: { display: true, labels: { color: '#71717a', font: { size: 10 } } } }}
+  });
+}
+
+function renderCalChart(data) {
+  destroyChart('cal');
+  const d = data.filter(e=>e.calories);
+  const ctx = document.getElementById('calChart');
+  ctx.parentElement.style.height = '200px';
+  charts.cal = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      datasets: [{
+        label: 'Calories',
+        data: d.map(e=>({x:e.date,y:e.calories})),
+        backgroundColor: d.map(e => e.calories <= 2000 ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.7)'),
+        borderRadius: 3
+      }]
+    },
+    options: {...commonOpts, plugins: { ...commonOpts.plugins, annotation: {} }}
+  });
+}
+
+function renderProteinChart(data) {
+  destroyChart('protein');
+  const d = data.filter(e=>e.protein);
+  const ctx = document.getElementById('proteinChart');
+  ctx.parentElement.style.height = '200px';
+  charts.protein = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      datasets: [{
+        label: 'Protein (g)',
+        data: d.map(e=>({x:e.date,y:e.protein})),
+        backgroundColor: d.map(e => e.protein >= 200 ? 'rgba(34,197,94,0.7)' : e.protein >= 150 ? 'rgba(234,179,8,0.7)' : 'rgba(239,68,68,0.7)'),
+        borderRadius: 3
+      }]
+    },
+    options: commonOpts
+  });
+}
+
+function renderSleepChart(data) {
+  destroyChart('sleep');
+  const d = data.filter(e=>e.sleep_score);
+  const ctx = document.getElementById('sleepChart');
+  ctx.parentElement.style.height = '200px';
+  charts.sleep = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [{
+        label: 'Sleep Score',
+        data: d.map(e=>({x:e.date,y:e.sleep_score})),
+        borderColor: '#a855f7',
+        backgroundColor: 'rgba(168,85,247,0.1)',
+        fill: true, tension: 0.3, pointRadius: 1
+      }]
+    },
+    options: commonOpts
+  });
+}
+
+function renderExerciseChart(data) {
+  destroyChart('exercise');
+  const d = data.filter(e=>e.exercise_minutes);
+  const ctx = document.getElementById('exerciseChart');
+  ctx.parentElement.style.height = '200px';
+  charts.exercise = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      datasets: [{
+        label: 'Minutes',
+        data: d.map(e=>({x:e.date,y:e.exercise_minutes})),
+        backgroundColor: 'rgba(6,182,212,0.7)',
+        borderRadius: 3
+      }]
+    },
+    options: commonOpts
+  });
+}
+
+function renderMacroChart(data) {
+  destroyChart('macro');
+  const d = data.filter(e=>e.protein);
+  if (!d.length) return;
+  const avgP = avg(d.map(e=>e.protein));
+  const avgC = avg(d.map(e=>e.carbs||0));
+  const avgF = avg(d.map(e=>e.fat||0));
+  const ctx = document.getElementById('macroChart');
+  ctx.parentElement.style.height = '200px';
+  charts.macro = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: [`Protein ${Math.round(avgP)}g`, `Carbs ${Math.round(avgC)}g`, `Fat ${Math.round(avgF)}g`],
+      datasets: [{
+        data: [avgP*4, avgC*4, avgF*9],
+        backgroundColor: ['rgba(34,197,94,0.8)', 'rgba(59,130,246,0.8)', 'rgba(249,115,22,0.8)'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, position: 'right', labels: { color: '#e4e4e7', font: { size: 11 } } } }
+    }
+  });
+}
+
+function renderHRChart(data) {
+  destroyChart('hr');
+  const d = data.filter(e=>e.rhr);
+  const ctx = document.getElementById('hrChart');
+  ctx.parentElement.style.height = '200px';
+  charts.hr = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [{
+        label: 'RHR (bpm)',
+        data: d.map(e=>({x:e.date,y:e.rhr})),
+        borderColor: '#ef4444',
+        backgroundColor: 'rgba(239,68,68,0.1)',
+        fill: true, tension: 0.3, pointRadius: 1
+      }]
+    },
+    options: commonOpts
+  });
+}
+
+function renderRecentLog() {
+  const recent = allData.slice(-7).reverse();
+  const container = document.getElementById('recentLog');
+  container.innerHTML = recent.map(d => {
+    const parts = [];
+    if (d.weight) parts.push(`⚖️ ${d.weight.toFixed(1)} lbs`);
+    if (d.calories) parts.push(`🔥 ${d.calories} cal`);
+    if (d.protein) parts.push(`💪 ${d.protein.toFixed(0)}g protein`);
+    if (d.sleep_score) parts.push(`😴 Sleep: ${d.sleep_score}`);
+    if (d.water) parts.push(`💧 ${d.water.toFixed(0)}g water`);
+    const ex = d.exercises ? `<div class="exercise">🏃 ${d.exercises.join(', ')} (${d.exercise_minutes} min)</div>` : '';
+    return `<div class="log-entry"><div class="date">${d.date}</div><div class="stats">${parts.join(' · ') || 'No data logged'}</div>${ex}</div>`;
+  }).join('');
+}
+
+// Range picker
+document.querySelectorAll('.range-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentRange = btn.dataset.range === 'all' ? 'all' : parseInt(btn.dataset.range);
+    render();
+  });
+});
+
+loadData();
+</script>
+</body>
+</html>
