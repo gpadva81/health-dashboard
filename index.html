@@ -177,11 +177,43 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
   </div>
 </div>
 
+<!-- TAB: DATA TABLE (spreadsheet replica) -->
+<div class="tab-content" id="tab-data">
+  <div style="padding:10px 12px;">
+    <!-- Goal header -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      <div style="background:#16a34a;color:white;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;">Goal: 215.0 lbs</div>
+      <div style="background:#16a34a;color:white;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;" id="fatToLose">Fat to lose: —</div>
+      <div style="background:#eab308;color:#000;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;">M1: 250 lb</div>
+      <div style="background:var(--card);border:1px solid var(--border);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;">M2: 235 lb</div>
+    </div>
+    <!-- Scrollable table -->
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;border:1px solid var(--border);">
+      <table id="dataTable" style="width:max-content;min-width:100%;border-collapse:collapse;font-size:11px;background:var(--card);">
+        <thead>
+          <tr style="background:#1e2130;position:sticky;top:0;z-index:10;">
+            <th style="padding:8px 6px;text-align:left;color:var(--muted);font-size:10px;white-space:nowrap;">Avg</th>
+            <th style="padding:8px 6px;text-align:left;color:var(--muted);font-size:10px;white-space:nowrap;">Date</th>
+            <th style="padding:8px 6px;text-align:left;color:var(--muted);font-size:10px;white-space:nowrap;">Day</th>
+            <th style="padding:8px 6px;text-align:right;color:var(--muted);font-size:10px;white-space:nowrap;">Weight</th>
+            <th style="padding:8px 6px;text-align:right;color:var(--muted);font-size:10px;white-space:nowrap;">Steps</th>
+            <th style="padding:8px 6px;text-align:right;color:var(--muted);font-size:10px;white-space:nowrap;">Sleep</th>
+            <th style="padding:8px 6px;text-align:right;color:var(--muted);font-size:10px;white-space:nowrap;">Cals</th>
+            <th style="padding:8px 6px;text-align:left;color:var(--muted);font-size:10px;white-space:nowrap;">Exercise</th>
+          </tr>
+        </thead>
+        <tbody id="dataTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- BOTTOM NAV -->
 <div class="bottom-nav">
   <a class="nav-item active" data-tab="overview"><div class="icon">📊</div><div class="nav-label">Dashboard</div></a>
+  <a class="nav-item" data-tab="data"><div class="icon">📋</div><div class="nav-label">Data</div></a>
   <a class="nav-item" data-tab="predict"><div class="icon">📉</div><div class="nav-label">Predictor</div></a>
-  <a class="nav-item" data-tab="log"><div class="icon">📋</div><div class="nav-label">Log</div></a>
+  <a class="nav-item" data-tab="log"><div class="icon">🗒️</div><div class="nav-label">Log</div></a>
 </div>
 
 <script>
@@ -265,6 +297,7 @@ function render(){
   renderCumulative(data.filter(d=>d.calories));
   renderLog(data);
   renderDeficitLog(data.filter(d=>d.calories));
+  renderDataTable(data);
 }
 
 const cOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{type:'time',time:{unit:'day',displayFormats:{day:'M/d'}},grid:{color:'#2a2d3a'},ticks:{color:'#9ca3af',font:{size:11},maxRotation:0,maxTicksLimit:6}},y:{grid:{color:'#2a2d3a'},ticks:{color:'#9ca3af',font:{size:11},maxTicksLimit:5}}}};
@@ -418,6 +451,102 @@ function renderDeficitLog(filtered){
       </div>
     </div>`;
   }).join('');
+}
+
+function renderDataTable(data){
+  const DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const rows=data.slice().reverse(); // newest first
+  
+  // Fat to lose
+  const weights=data.filter(d=>d.weight&&d.weight>150);
+  if(weights.length){
+    const cw=weights[weights.length-1].weight;
+    // Estimate: 32% BF at 269 → current BF proportional, goal 215 at ~17%
+    const fatToLose=cw-GOAL;
+    document.getElementById('fatToLose').textContent='To lose: '+fatToLose.toFixed(1)+' lbs';
+  }
+  
+  // Compute 7-day averages
+  const avgMap={};
+  for(let i=0;i<data.length;i++){
+    const d=data[i];
+    const dt=new Date(d.date);
+    if(dt.getDay()===0){ // Sunday = end of week
+      const weekData=data.slice(Math.max(0,i-6),i+1);
+      const wts=weekData.filter(x=>x.weight&&x.weight>150).map(x=>x.weight);
+      if(wts.length>=2){
+        avgMap[d.date]={avg:avg(wts),count:wts.length};
+      }
+    }
+  }
+  // Compute vs last week
+  const avgDates=Object.keys(avgMap).sort();
+  for(let i=1;i<avgDates.length;i++){
+    avgMap[avgDates[i]].vs=avgMap[avgDates[i]].avg-avgMap[avgDates[i-1]].avg;
+  }
+  
+  // Color functions
+  function stepColor(v){
+    if(!v)return'';
+    if(v>=10000)return'background:rgba(34,197,94,0.3)';
+    if(v>=7000)return'background:rgba(234,179,8,0.2)';
+    if(v>=5000)return'background:rgba(249,115,22,0.2)';
+    return'background:rgba(239,68,68,0.2)';
+  }
+  function sleepColor(v){
+    if(!v)return'';
+    if(v>=7)return'background:rgba(34,197,94,0.3)';
+    if(v>=6)return'background:rgba(234,179,8,0.2)';
+    return'background:rgba(239,68,68,0.2)';
+  }
+  function calColor(v){
+    if(!v)return'';
+    if(v<=2000)return'background:rgba(34,197,94,0.3)';
+    if(v<=2500)return'background:rgba(234,179,8,0.2)';
+    if(v<=3000)return'background:rgba(249,115,22,0.2)';
+    return'background:rgba(239,68,68,0.3)';
+  }
+  function vsColor(v){
+    if(v===undefined)return'';
+    if(v<0)return'background:rgba(34,197,94,0.3)';
+    if(v>0)return'background:rgba(239,68,68,0.2)';
+    return'';
+  }
+  
+  const cellStyle='padding:6px;white-space:nowrap;border-bottom:1px solid #2a2d3a;';
+  
+  let html='';
+  for(const d of rows){
+    const dt=new Date(d.date);
+    const day=DAYS[dt.getUTCDay()];
+    const w=d.weight&&d.weight>150?d.weight.toFixed(1):'';
+    const steps=d.exercise_calories?Math.round(d.exercise_calories/0.04):''; // rough step estimate from cal
+    const sleep=d.sleep_score?((d.sleep_score/100*8).toFixed(1)):''; // estimate hours from score
+    const cals=d.calories||'';
+    const ex=d.exercises?d.exercises.join(', '):'';
+    
+    // Weekly average row
+    let avgCell='';
+    if(avgMap[d.date]){
+      const a=avgMap[d.date];
+      avgCell=`<div style="font-size:10px;color:var(--muted);">7d avg</div><div style="font-weight:700;">${a.avg.toFixed(1)}</div>`;
+      if(a.vs!==undefined){
+        avgCell+=`<div style="font-size:10px;${vsColor(a.vs)};padding:2px 4px;border-radius:4px;margin-top:2px;">${a.vs>0?'+':''}${a.vs.toFixed(1)}</div>`;
+      }
+    }
+    
+    html+=`<tr>
+      <td style="${cellStyle}font-size:10px;">${avgCell}</td>
+      <td style="${cellStyle}color:var(--blue);">${d.date.slice(5)}</td>
+      <td style="${cellStyle}color:var(--muted);">${day.slice(0,3)}</td>
+      <td style="${cellStyle}text-align:right;font-weight:${w?'700':'400'};">${w||'—'}</td>
+      <td style="${cellStyle}text-align:right;${stepColor(d.exercise_minutes?d.exercise_minutes*100:0)}">${d.exercise_minutes?d.exercise_minutes+'m':'—'}</td>
+      <td style="${cellStyle}text-align:right;${d.sleep_score?sleepColor(d.sleep_score>=75?7:d.sleep_score>=60?6.5:5):''}">${d.sleep_score||'—'}</td>
+      <td style="${cellStyle}text-align:right;font-weight:700;${calColor(cals)}">${cals?cals.toLocaleString():'—'}</td>
+      <td style="${cellStyle}font-size:10px;color:var(--cyan);max-width:120px;overflow:hidden;text-overflow:ellipsis;">${ex||'—'}</td>
+    </tr>`;
+  }
+  document.getElementById('dataTableBody').innerHTML=html;
 }
 
 // Range picker
