@@ -72,8 +72,8 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 .log-card .stats { font-size:12px; line-height:1.7; }
 .log-card .exercise { font-size:11px; color:var(--cyan); margin-top:4px; }
 
-/* ===== BOTTOM NAV ===== */
-.bottom-nav { position:fixed; bottom:0; left:0; right:0; background:var(--card); border-top:1px solid var(--border); display:flex; padding:10px 0 calc(12px + var(--safe-bottom)); z-index:100; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); background:rgba(26,29,39,0.92); }
+/* ===== NAV ===== */
+.bottom-nav { position:fixed; bottom:0; left:0; right:0; background:rgba(26,29,39,0.92); border-top:1px solid var(--border); display:flex; padding:10px 0 calc(12px + var(--safe-bottom)); z-index:100; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
 .nav-item { flex:1; text-align:center; padding:4px; text-decoration:none; }
 .nav-item .icon { font-size:20px; }
 .nav-item .nav-label { font-size:10px; color:var(--muted); }
@@ -92,8 +92,39 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 .macro-pill.c .num { color:var(--blue); }
 .macro-pill.f .num { color:var(--orange); }
 
+/* ===== DESKTOP / TABLET ===== */
 @media(min-width:768px) {
-  body { max-width:480px; margin:0 auto; }
+  body { max-width:1200px; margin:0 auto; padding-bottom:20px; }
+  .topbar { padding:16px 24px; }
+  .topbar h1 { font-size:24px; }
+  .topbar .weeks { font-size:20px; }
+  .hero { margin:16px 24px 12px; padding:20px 24px; }
+  .hero-weight { font-size:56px; }
+  .kpi-strip { padding:8px 24px; flex-wrap:wrap; overflow-x:visible; }
+  .kpi-card { min-width:140px; flex:1; }
+  .kpi-strip::after { display:none; }
+  .range-picker { padding:8px 24px; max-width:400px; }
+  .chart-card { margin:8px 24px; }
+  .macros-row { padding:8px 24px; }
+  .log-section { padding:8px 24px; }
+  /* Side-by-side charts on desktop */
+  .charts-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:0 24px; }
+  .charts-grid .chart-card { margin:0; }
+  /* Bottom nav becomes top tabs on desktop */
+  .bottom-nav { position:static; background:transparent; border:none; padding:8px 24px; gap:8px; justify-content:flex-start; backdrop-filter:none; -webkit-backdrop-filter:none; }
+  .nav-item { flex:none; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:8px 16px; display:flex; align-items:center; gap:6px; cursor:pointer; }
+  .nav-item .icon { font-size:14px; }
+  .nav-item .nav-label { font-size:12px; }
+  .nav-item.active { background:var(--blue); border-color:var(--blue); }
+  .nav-item.active .nav-label { color:white; }
+  /* Data table wider */
+  #tab-data>div { padding:10px 24px!important; }
+  /* Log grid on desktop */
+  .log-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:8px; }
+}
+@media(min-width:1024px) {
+  .kpi-card .val { font-size:28px; }
+  .chart-wrap { height:260px; }
 }
 </style>
 </head>
@@ -134,6 +165,14 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
   <div class="kpi-card"><div class="label">Deficit</div><div class="val" id="kDeficit">—</div><div class="sub muted" id="kDeficitSub">cal/day avg</div></div>
 </div>
 
+<!-- NAV (positioned by CSS: bottom on mobile, inline on desktop) -->
+<div class="bottom-nav" id="mainNav">
+  <a class="nav-item active" data-tab="overview"><div class="icon">📊</div><div class="nav-label">Dashboard</div></a>
+  <a class="nav-item" data-tab="data"><div class="icon">📋</div><div class="nav-label">Data</div></a>
+  <a class="nav-item" data-tab="predict"><div class="icon">📉</div><div class="nav-label">Predictor</div></a>
+  <a class="nav-item" data-tab="log"><div class="icon">🗒️</div><div class="nav-label">Log</div></a>
+</div>
+
 <!-- RANGE PICKER -->
 <div class="range-picker">
   <button class="range-btn" data-range="7">7D</button>
@@ -152,10 +191,12 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
   </div>
 
   <div class="chart-card"><h3>📉 Weight Trend</h3><div class="chart-wrap"><canvas id="weightChart"></canvas></div></div>
-  <div class="chart-card"><h3>🔥 Calories</h3><div class="chart-wrap"><canvas id="calChart"></canvas></div></div>
-  <div class="chart-card"><h3>💪 Protein</h3><div class="chart-wrap"><canvas id="protChart"></canvas></div></div>
-  <div class="chart-card"><h3>😴 Sleep Score</h3><div class="chart-wrap"><canvas id="sleepChart"></canvas></div></div>
-  <div class="chart-card"><h3>🏃 Exercise</h3><div class="chart-wrap"><canvas id="exChart"></canvas></div></div>
+  <div class="charts-grid">
+    <div class="chart-card"><h3>🔥 Calories</h3><div class="chart-wrap"><canvas id="calChart"></canvas></div></div>
+    <div class="chart-card"><h3>💪 Protein</h3><div class="chart-wrap"><canvas id="protChart"></canvas></div></div>
+    <div class="chart-card"><h3>😴 Sleep Score</h3><div class="chart-wrap"><canvas id="sleepChart"></canvas></div></div>
+    <div class="chart-card"><h3>🏃 Exercise</h3><div class="chart-wrap"><canvas id="exChart"></canvas></div></div>
+  </div>
 </div>
 
 <!-- TAB: LOG -->
@@ -169,8 +210,10 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 <!-- TAB: PREDICTOR (embedded) -->
 <div class="tab-content" id="tab-predict">
   <div class="chart-card"><h3>📉 Actual vs Predicted Weight</h3><div class="chart-wrap" style="height:250px;"><canvas id="predChart"></canvas></div></div>
-  <div class="chart-card"><h3>🔥 Daily Deficit</h3><div class="chart-wrap"><canvas id="deficitChart"></canvas></div></div>
-  <div class="chart-card"><h3>📊 Cumulative Deficit (lbs)</h3><div class="chart-wrap"><canvas id="cumChart"></canvas></div></div>
+  <div class="charts-grid">
+    <div class="chart-card"><h3>🔥 Daily Deficit</h3><div class="chart-wrap"><canvas id="deficitChart"></canvas></div></div>
+    <div class="chart-card"><h3>📊 Cumulative Deficit (lbs)</h3><div class="chart-wrap"><canvas id="cumChart"></canvas></div></div>
+  </div>
   <div class="log-section">
     <h3>📋 Deficit Log</h3>
     <div id="deficitLog"></div>
@@ -208,13 +251,7 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
   </div>
 </div>
 
-<!-- BOTTOM NAV -->
-<div class="bottom-nav">
-  <a class="nav-item active" data-tab="overview"><div class="icon">📊</div><div class="nav-label">Dashboard</div></a>
-  <a class="nav-item" data-tab="data"><div class="icon">📋</div><div class="nav-label">Data</div></a>
-  <a class="nav-item" data-tab="predict"><div class="icon">📉</div><div class="nav-label">Predictor</div></a>
-  <a class="nav-item" data-tab="log"><div class="icon">🗒️</div><div class="nav-label">Log</div></a>
-</div>
+<!-- nav is above content, positioned by CSS -->
 
 <script>
 let allData=[], charts={}, currentRange=30;
