@@ -2,450 +2,378 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gabriel's Health Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f1117">
+<title>The Cut — Dashboard</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <style>
 :root {
-  --bg: #0f1117;
-  --card: #1a1d27;
-  --border: #2a2d3a;
-  --text: #e4e4e7;
-  --muted: #71717a;
-  --red: #ef4444;
-  --green: #22c55e;
-  --blue: #3b82f6;
-  --purple: #a855f7;
-  --orange: #f97316;
-  --cyan: #06b6d4;
-  --yellow: #eab308;
+  --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a; --text: #e4e4e7;
+  --muted: #71717a; --red: #ef4444; --green: #22c55e; --blue: #3b82f6;
+  --purple: #a855f7; --orange: #f97316; --cyan: #06b6d4; --yellow: #eab308;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
-* { margin:0; padding:0; box-sizing:border-box; }
-body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif; padding-bottom:calc(60px + var(--safe-bottom)); overflow-x:hidden; }
 
-.header { padding:20px 24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
-.header h1 { font-size:24px; font-weight:800; }
-.header h1 span { color:var(--red); }
-.header .meta { font-size:12px; color:var(--muted); }
-.header .race-badge { background:linear-gradient(135deg,var(--red),var(--blue)); padding:6px 16px; border-radius:20px; font-size:12px; font-weight:600; }
+/* ===== TOP BAR ===== */
+.topbar { position:sticky; top:0; z-index:100; background:var(--bg); border-bottom:1px solid var(--border); padding:12px 16px; display:flex; justify-content:space-between; align-items:center; }
+.topbar h1 { font-size:18px; font-weight:800; }
+.topbar h1 span { color:var(--red); }
+.topbar .weeks { font-size:16px; font-weight:800; color:var(--green); }
+.topbar .weeks small { display:block; font-size:10px; color:var(--muted); font-weight:400; }
 
-.range-picker { padding:10px 24px; display:flex; gap:8px; flex-wrap:wrap; }
-.range-btn { background:var(--card); border:1px solid var(--border); color:var(--muted); padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px; }
+/* ===== HERO CARD ===== */
+.hero { margin:12px 12px 8px; background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; }
+.hero-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; }
+.hero-weight { font-size:48px; font-weight:800; line-height:1; }
+.hero-weight small { font-size:14px; color:var(--muted); font-weight:400; }
+.hero-change { text-align:right; }
+.hero-change .delta { font-size:20px; font-weight:700; }
+.hero-change .delta.down { color:var(--green); }
+.hero-change .delta.up { color:var(--red); }
+.hero-change .sub { font-size:11px; color:var(--muted); }
+.progress { height:8px; background:#1f2937; border-radius:4px; overflow:hidden; margin-bottom:6px; }
+.progress-fill { height:100%; border-radius:4px; background:linear-gradient(90deg,var(--red),var(--orange),var(--green)); transition:width 0.6s; }
+.progress-labels { display:flex; justify-content:space-between; font-size:10px; color:var(--muted); }
+
+/* ===== KPI STRIP ===== */
+.kpi-strip { display:flex; gap:8px; padding:8px 12px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+.kpi-strip::-webkit-scrollbar { display:none; }
+.kpi-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px 14px; min-width:110px; flex-shrink:0; }
+.kpi-card .label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.3px; }
+.kpi-card .val { font-size:22px; font-weight:800; margin:2px 0; }
+.kpi-card .sub { font-size:10px; }
+.kpi-card .sub.good { color:var(--green); }
+.kpi-card .sub.warn { color:var(--yellow); }
+.kpi-card .sub.bad { color:var(--red); }
+.kpi-card .sub.muted { color:var(--muted); }
+
+/* ===== CHART CARDS ===== */
+.chart-card { margin:8px 12px; background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; }
+.chart-card h3 { font-size:13px; color:var(--muted); margin-bottom:8px; }
+.chart-wrap { position:relative; height:200px; }
+
+/* ===== RANGE PICKER ===== */
+.range-picker { display:flex; gap:6px; padding:8px 12px; }
+.range-btn { flex:1; background:var(--card); border:1px solid var(--border); color:var(--muted); padding:8px; border-radius:8px; font-size:13px; font-weight:600; text-align:center; cursor:pointer; -webkit-appearance:none; }
 .range-btn.active { background:var(--blue); color:white; border-color:var(--blue); }
 
-.kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; padding:12px 24px; }
-.kpi { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
-.kpi .label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
-.kpi .value { font-size:28px; font-weight:800; margin:4px 0; }
-.kpi .change { font-size:12px; }
-.kpi .change.up { color:var(--red); }
-.kpi .change.down { color:var(--green); }
-.kpi .change.neutral { color:var(--muted); }
+/* ===== DAILY LOG ===== */
+.log-section { padding:8px 12px; }
+.log-section h3 { font-size:13px; color:var(--muted); margin-bottom:8px; }
+.log-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:8px; }
+.log-card .date { font-size:12px; color:var(--blue); font-weight:600; margin-bottom:4px; }
+.log-card .stats { font-size:12px; line-height:1.7; }
+.log-card .exercise { font-size:11px; color:var(--cyan); margin-top:4px; }
 
-.charts { display:grid; grid-template-columns:repeat(auto-fit,minmax(400px,1fr)); gap:12px; padding:12px 24px; }
-.chart-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; }
-.chart-card h3 { font-size:14px; margin-bottom:10px; color:var(--muted); }
-.chart-card canvas { width:100%!important; }
+/* ===== BOTTOM NAV ===== */
+.bottom-nav { position:fixed; bottom:0; left:0; right:0; background:var(--card); border-top:1px solid var(--border); display:flex; padding:8px 0 calc(8px + var(--safe-bottom)); z-index:100; }
+.nav-item { flex:1; text-align:center; padding:4px; text-decoration:none; }
+.nav-item .icon { font-size:20px; }
+.nav-item .nav-label { font-size:10px; color:var(--muted); }
+.nav-item.active .nav-label { color:var(--blue); }
 
-.full-width { grid-column:1/-1; }
+/* ===== SECTIONS (tab content) ===== */
+.tab-content { display:none; }
+.tab-content.active { display:block; }
 
-.recent-log { padding:12px 24px; }
-.recent-log h3 { font-size:14px; color:var(--muted); margin-bottom:10px; }
-.log-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:10px; }
-.log-entry { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px; }
-.log-entry .date { font-size:12px; color:var(--blue); font-weight:600; margin-bottom:6px; }
-.log-entry .stats { font-size:12px; color:var(--text); line-height:1.6; }
-.log-entry .exercise { font-size:11px; color:var(--cyan); margin-top:4px; }
+/* ===== MACROS ROW ===== */
+.macros-row { display:flex; gap:8px; padding:8px 12px; }
+.macro-pill { flex:1; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px; text-align:center; }
+.macro-pill .num { font-size:20px; font-weight:800; }
+.macro-pill .lbl { font-size:10px; color:var(--muted); text-transform:uppercase; }
+.macro-pill.p .num { color:var(--green); }
+.macro-pill.c .num { color:var(--blue); }
+.macro-pill.f .num { color:var(--orange); }
 
-.goal-tracker { padding:12px 24px 24px; }
-.goal-tracker h3 { font-size:14px; color:var(--muted); margin-bottom:10px; }
-.progress-bar-container { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; }
-.progress-labels { display:flex; justify-content:space-between; font-size:12px; margin-bottom:8px; }
-.progress-bar { height:24px; background:#1f2937; border-radius:12px; overflow:hidden; position:relative; }
-.progress-fill { height:100%; border-radius:12px; transition:width 0.5s; }
-.progress-marker { position:absolute; top:-18px; font-size:10px; color:var(--yellow); transform:translateX(-50%); }
-.milestones { display:flex; justify-content:space-between; margin-top:8px; font-size:11px; color:var(--muted); }
-
-@media(max-width:600px) {
-  .charts { grid-template-columns:1fr; }
-  .kpis { grid-template-columns:repeat(2,1fr); }
-  .header h1 { font-size:18px; }
+@media(min-width:768px) {
+  body { max-width:480px; margin:0 auto; }
 }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div>
-    <h1>🔥 <span>THE CUT</span> — Live Dashboard</h1>
-    <div class="meta">Auto-synced from Cronometer & Garmin · Last updated: <span id="lastUpdate"></span> · <a href="predictor.html" style="color:var(--blue)">Weight Predictor →</a></div>
-  </div>
-  <div style="text-align:right;">
-    <div class="race-badge">🏊🚴🏃 Santa Cruz Tri — Sept 27</div>
-    <div id="weeksToGoal" style="font-size:20px;font-weight:800;color:var(--green);margin-top:6px;"></div>
+<!-- TOP BAR -->
+<div class="topbar">
+  <h1>🔥 <span>THE CUT</span></h1>
+  <div class="weeks" id="weeksToGoal">
+    <span id="weeksNum">—</span>
+    <small>weeks to 215 lbs</small>
   </div>
 </div>
 
+<!-- HERO CARD -->
+<div class="hero">
+  <div class="hero-top">
+    <div>
+      <div class="hero-weight"><span id="heroWeight">—</span><small> lbs</small></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;" id="heroDate"></div>
+    </div>
+    <div class="hero-change">
+      <div class="delta down" id="heroDelta">—</div>
+      <div class="sub" id="heroDeltaSub">from start (267)</div>
+    </div>
+  </div>
+  <div class="progress"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  <div class="progress-labels"><span>267</span><span>Race Day</span><span>215</span></div>
+</div>
+
+<!-- KPI STRIP (scrollable) -->
+<div class="kpi-strip">
+  <div class="kpi-card"><div class="label">Calories</div><div class="val" id="kCal">—</div><div class="sub muted" id="kCalSub">7-day avg</div></div>
+  <div class="kpi-card"><div class="label">Protein</div><div class="val" id="kProt">—</div><div class="sub muted" id="kProtSub">7-day avg</div></div>
+  <div class="kpi-card"><div class="label">Sleep</div><div class="val" id="kSleep">—</div><div class="sub muted" id="kSleepSub">score</div></div>
+  <div class="kpi-card"><div class="label">Race</div><div class="val" id="kRace">—</div><div class="sub muted">days left</div></div>
+  <div class="kpi-card"><div class="label">Streak</div><div class="val" id="kStreak">—</div><div class="sub muted">log days</div></div>
+  <div class="kpi-card"><div class="label">Deficit</div><div class="val" id="kDeficit">—</div><div class="sub muted" id="kDeficitSub">cal/day avg</div></div>
+</div>
+
+<!-- RANGE PICKER -->
 <div class="range-picker">
   <button class="range-btn" data-range="7">7D</button>
-  <button class="range-btn" data-range="14">14D</button>
   <button class="range-btn active" data-range="30">30D</button>
   <button class="range-btn" data-range="90">90D</button>
   <button class="range-btn" data-range="all">All</button>
 </div>
 
-<div class="kpis">
-  <div class="kpi"><div class="label">Current Weight</div><div class="value" id="kpi-weight">—</div><div class="change" id="kpi-weight-change"></div></div>
-  <div class="kpi"><div class="label">Goal Weight</div><div class="value" style="color:var(--green)">215</div><div class="change neutral">lbs target</div></div>
-  <div class="kpi"><div class="label">Avg Calories (7d)</div><div class="value" id="kpi-cal">—</div><div class="change" id="kpi-cal-target"></div></div>
-  <div class="kpi"><div class="label">Avg Protein (7d)</div><div class="value" id="kpi-protein">—</div><div class="change" id="kpi-protein-target"></div></div>
-  <div class="kpi"><div class="label">Avg Sleep Score</div><div class="value" id="kpi-sleep">—</div><div class="change" id="kpi-sleep-change"></div></div>
-  <div class="kpi"><div class="label">Days to Race</div><div class="value" id="kpi-race">—</div><div class="change neutral">Sept 27, 2026</div></div>
-  <div class="kpi"><div class="label">Total Lost</div><div class="value" id="kpi-lost">—</div><div class="change" id="kpi-lost-rate"></div></div>
-  <div class="kpi"><div class="label">Logging Streak</div><div class="value" id="kpi-streak">—</div><div class="change neutral">consecutive days</div></div>
+<!-- TAB: OVERVIEW -->
+<div class="tab-content active" id="tab-overview">
+  <!-- Today's Macros -->
+  <div class="macros-row" id="macrosRow">
+    <div class="macro-pill p"><div class="num" id="mProt">—</div><div class="lbl">Protein</div></div>
+    <div class="macro-pill c"><div class="num" id="mCarb">—</div><div class="lbl">Carbs</div></div>
+    <div class="macro-pill f"><div class="num" id="mFat">—</div><div class="lbl">Fat</div></div>
+  </div>
+
+  <div class="chart-card"><h3>📉 Weight Trend</h3><div class="chart-wrap"><canvas id="weightChart"></canvas></div></div>
+  <div class="chart-card"><h3>🔥 Calories</h3><div class="chart-wrap"><canvas id="calChart"></canvas></div></div>
+  <div class="chart-card"><h3>💪 Protein</h3><div class="chart-wrap"><canvas id="protChart"></canvas></div></div>
+  <div class="chart-card"><h3>😴 Sleep Score</h3><div class="chart-wrap"><canvas id="sleepChart"></canvas></div></div>
+  <div class="chart-card"><h3>🏃 Exercise</h3><div class="chart-wrap"><canvas id="exChart"></canvas></div></div>
 </div>
 
-<div class="charts">
-  <div class="chart-card full-width"><h3>📉 Weight Trend</h3><canvas id="weightChart"></canvas></div>
-  <div class="chart-card"><h3>🔥 Daily Calories</h3><canvas id="calChart"></canvas></div>
-  <div class="chart-card"><h3>💪 Daily Protein (g)</h3><canvas id="proteinChart"></canvas></div>
-  <div class="chart-card"><h3>😴 Sleep Score</h3><canvas id="sleepChart"></canvas></div>
-  <div class="chart-card"><h3>🏃 Exercise Minutes</h3><canvas id="exerciseChart"></canvas></div>
-  <div class="chart-card"><h3>🍽️ Macros Breakdown (7d avg)</h3><canvas id="macroChart"></canvas></div>
-  <div class="chart-card"><h3>❤️ Resting Heart Rate</h3><canvas id="hrChart"></canvas></div>
-</div>
-
-<div class="goal-tracker">
-  <h3>🎯 Weight Loss Progress</h3>
-  <div class="progress-bar-container">
-    <div class="progress-labels">
-      <span>Start: 267 lbs</span>
-      <span id="current-weight-label">Current: —</span>
-      <span>Goal: 215 lbs</span>
-    </div>
-    <div class="progress-bar">
-      <div class="progress-fill" id="progress-fill" style="width:0%;background:linear-gradient(90deg,var(--red),var(--orange),var(--green));"></div>
-    </div>
-    <div class="milestones">
-      <span>267</span><span>Race Day (~227)</span><span>250</span><span>225</span><span>215</span>
-    </div>
+<!-- TAB: LOG -->
+<div class="tab-content" id="tab-log">
+  <div class="log-section">
+    <h3>📋 Recent Daily Log</h3>
+    <div id="logList"></div>
   </div>
 </div>
 
-<div class="recent-log">
-  <h3>📋 Recent Daily Log</h3>
-  <div class="log-grid" id="recentLog"></div>
+<!-- TAB: PREDICTOR (embedded) -->
+<div class="tab-content" id="tab-predict">
+  <div class="chart-card"><h3>📉 Actual vs Predicted Weight</h3><div class="chart-wrap" style="height:250px;"><canvas id="predChart"></canvas></div></div>
+  <div class="chart-card"><h3>🔥 Daily Deficit</h3><div class="chart-wrap"><canvas id="deficitChart"></canvas></div></div>
+  <div class="chart-card"><h3>📊 Cumulative Deficit (lbs)</h3><div class="chart-wrap"><canvas id="cumChart"></canvas></div></div>
+  <div class="log-section">
+    <h3>📋 Deficit Log</h3>
+    <div id="deficitLog"></div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <a class="nav-item active" data-tab="overview"><div class="icon">📊</div><div class="nav-label">Dashboard</div></a>
+  <a class="nav-item" data-tab="predict"><div class="icon">📉</div><div class="nav-label">Predictor</div></a>
+  <a class="nav-item" data-tab="log"><div class="icon">📋</div><div class="nav-label">Log</div></a>
 </div>
 
 <script>
-let allData = [];
-let charts = {};
-let currentRange = 30;
+let allData=[], charts={}, currentRange=30;
+const TDEE=2800, GOAL=215, RATE=2, START_W=267;
 
-async function loadData() {
-  const resp = await fetch('data.json');
-  allData = await resp.json();
-  document.getElementById('lastUpdate').textContent = allData.length ? allData[allData.length-1].date : 'N/A';
+async function loadData(){
+  allData = await (await fetch('data.json')).json();
   render();
 }
 
-function filterData(days) {
-  if (days === 'all') return allData;
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - days);
-  const cutStr = cutoff.toISOString().slice(0,10);
-  return allData.filter(d => d.date >= cutStr);
-}
+function filt(days){ if(days==='all') return allData; const c=new Date(); c.setDate(c.getDate()-days); const s=c.toISOString().slice(0,10); return allData.filter(d=>d.date>=s); }
+function avg(a){ return a.length?a.reduce((x,y)=>x+y,0)/a.length:0; }
+function dc(id){ if(charts[id]) charts[id].destroy(); }
 
-function avg(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
-
-function render() {
-  const data = filterData(currentRange);
-  const recent7 = filterData(7);
+function render(){
+  const data=filt(currentRange), r7=filt(7);
+  const weights=allData.filter(d=>d.weight&&d.weight>150);
+  const cw=weights.length?weights[weights.length-1].weight:null;
+  
+  // Hero
+  if(cw){
+    document.getElementById('heroWeight').textContent=cw.toFixed(1);
+    document.getElementById('heroDate').textContent=weights[weights.length-1].date;
+    const lost=START_W-cw;
+    const d=document.getElementById('heroDelta');
+    d.textContent=(lost>=0?'↓':'↑')+Math.abs(lost).toFixed(1);
+    d.className='delta '+(lost>=0?'down':'up');
+    const pct=Math.max(0,Math.min(100,(lost/(START_W-GOAL))*100));
+    document.getElementById('progressFill').style.width=pct+'%';
+    const wk=Math.ceil((cw-GOAL)/RATE);
+    document.getElementById('weeksNum').textContent=cw>GOAL?wk:'🎉';
+  }
   
   // KPIs
-  const weights = allData.filter(d=>d.weight);
-  const currentW = weights.length ? weights[weights.length-1].weight : null;
-  const startW = 267;
+  const cal7=r7.filter(d=>d.calories).map(d=>d.calories);
+  const avgCal=cal7.length?Math.round(avg(cal7)):null;
+  document.getElementById('kCal').textContent=avgCal?avgCal.toLocaleString():'—';
+  const calSub=document.getElementById('kCalSub');
+  if(avgCal){ calSub.textContent=avgCal<=2000?'✅ on target':'⚠️ '+(avgCal-2000)+' over'; calSub.className='sub '+(avgCal<=2000?'good':'bad'); }
   
-  document.getElementById('kpi-weight').textContent = currentW ? currentW.toFixed(1) : '—';
-  if (currentW) {
-    const lost = startW - currentW;
-    const el = document.getElementById('kpi-weight-change');
-    el.textContent = `${lost >= 0 ? '↓' : '↑'} ${Math.abs(lost).toFixed(1)} lbs from start`;
-    el.className = 'change ' + (lost >= 0 ? 'down' : 'up');
-  }
+  const prot7=r7.filter(d=>d.protein).map(d=>d.protein);
+  const avgProt=prot7.length?Math.round(avg(prot7)):null;
+  document.getElementById('kProt').textContent=avgProt?avgProt+'g':'—';
+  const protSub=document.getElementById('kProtSub');
+  if(avgProt){ protSub.textContent=avgProt>=200?'✅ ≥200g':'⚠️ '+(200-avgProt)+'g short'; protSub.className='sub '+(avgProt>=200?'good':'bad'); }
   
-  // Calories
-  const cal7 = recent7.filter(d=>d.calories).map(d=>d.calories);
-  document.getElementById('kpi-cal').textContent = cal7.length ? Math.round(avg(cal7)).toLocaleString() : '—';
-  const calTarget = document.getElementById('kpi-cal-target');
-  if (cal7.length) {
-    const a = avg(cal7);
-    calTarget.textContent = a <= 2000 ? '✅ On target' : `⚠️ ${Math.round(a-2000)} over target`;
-    calTarget.className = 'change ' + (a <= 2000 ? 'down' : 'up');
-  }
+  const sl7=r7.filter(d=>d.sleep_score).map(d=>d.sleep_score);
+  document.getElementById('kSleep').textContent=sl7.length?Math.round(avg(sl7)):'—';
+  const slSub=document.getElementById('kSleepSub');
+  if(sl7.length){ const a=avg(sl7); slSub.textContent=a>=75?'✅ good':'⚠️ improve'; slSub.className='sub '+(a>=75?'good':'warn'); }
   
-  // Protein
-  const prot7 = recent7.filter(d=>d.protein).map(d=>d.protein);
-  document.getElementById('kpi-protein').textContent = prot7.length ? Math.round(avg(prot7)) + 'g' : '—';
-  const protTarget = document.getElementById('kpi-protein-target');
-  if (prot7.length) {
-    const a = avg(prot7);
-    protTarget.textContent = a >= 200 ? '✅ ≥200g target' : `⚠️ ${Math.round(200-a)}g below target`;
-    protTarget.className = 'change ' + (a >= 200 ? 'down' : 'up');
-  }
+  const race=new Date('2026-09-27');
+  document.getElementById('kRace').textContent=Math.ceil((race-new Date())/(864e5));
   
-  // Sleep
-  const sleep7 = recent7.filter(d=>d.sleep_score).map(d=>d.sleep_score);
-  document.getElementById('kpi-sleep').textContent = sleep7.length ? Math.round(avg(sleep7)) : '—';
-  const sleepEl = document.getElementById('kpi-sleep-change');
-  if (sleep7.length) {
-    const a = avg(sleep7);
-    sleepEl.textContent = a >= 75 ? '✅ Good' : '⚠️ Needs improvement';
-    sleepEl.className = 'change ' + (a >= 75 ? 'down' : 'up');
-  }
+  let streak=0; for(let i=allData.length-1;i>=0;i--){ if(allData[i].calories) streak++; else break; }
+  document.getElementById('kStreak').textContent=streak;
   
-  // Race countdown
-  const raceDate = new Date('2026-09-27');
-  const today = new Date();
-  const daysToRace = Math.ceil((raceDate - today) / (1000*60*60*24));
-  document.getElementById('kpi-race').textContent = daysToRace;
+  // Deficit KPI
+  const logged=allData.filter(d=>d.calories);
+  const deficits=logged.map(d=>TDEE-d.calories);
+  const avgDef=deficits.length?avg(deficits):0;
+  document.getElementById('kDeficit').textContent=avgDef?Math.round(avgDef).toLocaleString():'—';
+  const defSub=document.getElementById('kDeficitSub');
+  if(avgDef){ defSub.textContent=avgDef>=800?'✅ on track':avgDef>=500?'🟡 moderate':'⚠️ low'; defSub.className='sub '+(avgDef>=800?'good':avgDef>=500?'warn':'bad'); }
   
-  // Total lost
-  if (currentW) {
-    const lost = startW - currentW;
-    document.getElementById('kpi-lost').textContent = lost.toFixed(1);
-    const weeks = (new Date() - new Date('2026-04-11')) / (1000*60*60*24*7);
-    const rate = weeks > 0 ? lost / weeks : 0;
-    const rateEl = document.getElementById('kpi-lost-rate');
-    rateEl.textContent = `${rate.toFixed(1)} lbs/week avg`;
-    rateEl.className = 'change ' + (rate >= 1.5 ? 'down' : 'up');
-  }
-  
-  // Streak
-  let streak = 0;
-  for (let i = allData.length - 1; i >= 0; i--) {
-    if (allData[i].calories) streak++;
-    else break;
-  }
-  document.getElementById('kpi-streak').textContent = streak;
-  
-  // Weeks to goal
-  if (currentW && currentW > 215) {
-    const lbsToGo = currentW - 215;
-    const weeksToGo = Math.ceil(lbsToGo / 2);
-    document.getElementById('weeksToGoal').textContent = `${weeksToGo} weeks to goal`;
-  } else if (currentW) {
-    document.getElementById('weeksToGoal').textContent = '🎉 Goal reached!';
-  }
-  
-  // Progress bar
-  if (currentW) {
-    const pct = Math.min(100, ((startW - currentW) / (startW - 215)) * 100);
-    document.getElementById('progress-fill').style.width = Math.max(0,pct) + '%';
-    document.getElementById('current-weight-label').textContent = `Current: ${currentW.toFixed(1)} lbs`;
-  }
+  // Today's macros
+  const today=allData[allData.length-1];
+  document.getElementById('mProt').textContent=today&&today.protein?Math.round(today.protein)+'g':'—';
+  document.getElementById('mCarb').textContent=today&&today.carbs?Math.round(today.carbs)+'g':'—';
+  document.getElementById('mFat').textContent=today&&today.fat?Math.round(today.fat)+'g':'—';
   
   // Charts
-  renderWeightChart(data);
-  renderCalChart(data);
-  renderProteinChart(data);
-  renderSleepChart(data);
-  renderExerciseChart(data);
-  renderMacroChart(recent7);
-  renderHRChart(data);
+  renderWeight(data.filter(d=>d.weight&&d.weight>150));
+  renderCal(data.filter(d=>d.calories));
+  renderProt(data.filter(d=>d.protein));
+  renderSleep(data.filter(d=>d.sleep_score));
+  renderEx(data.filter(d=>d.exercise_minutes));
+  renderPrediction();
+  renderDeficit();
+  renderCumulative();
+  renderLog();
+  renderDeficitLog();
+}
+
+const cOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{type:'time',time:{unit:'day'},grid:{color:'#2a2d3a'},ticks:{color:'#71717a',font:{size:9},maxRotation:0}},y:{grid:{color:'#2a2d3a'},ticks:{color:'#71717a',font:{size:9}}}}};
+
+function renderWeight(d){
+  dc('w');
+  const pred=d.map(e=>{const w=(new Date(e.date)-new Date('2026-04-11'))/(6048e5);return{x:e.date,y:Math.max(GOAL,START_W-RATE*w)};});
+  charts.w=new Chart(document.getElementById('weightChart'),{type:'line',data:{datasets:[
+    {label:'Weight',data:d.map(e=>({x:e.date,y:e.weight})),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.3,pointRadius:1.5,borderWidth:2},
+    {label:'Target',data:pred,borderColor:'#22c55e',borderDash:[5,3],pointRadius:0,borderWidth:1.5},
+    {label:'Goal',data:d.map(e=>({x:e.date,y:GOAL})),borderColor:'#ef4444',borderDash:[3,3],pointRadius:0,borderWidth:1}
+  ]},options:{...cOpts,plugins:{legend:{display:true,labels:{color:'#71717a',font:{size:9},boxWidth:12}}}}});
+}
+function renderCal(d){
+  dc('c');
+  charts.c=new Chart(document.getElementById('calChart'),{type:'bar',data:{datasets:[{data:d.map(e=>({x:e.date,y:e.calories})),backgroundColor:d.map(e=>e.calories<=2000?'rgba(34,197,94,0.7)':'rgba(239,68,68,0.7)'),borderRadius:3}]},options:cOpts});
+}
+function renderProt(d){
+  dc('p');
+  charts.p=new Chart(document.getElementById('protChart'),{type:'bar',data:{datasets:[{data:d.map(e=>({x:e.date,y:e.protein})),backgroundColor:d.map(e=>e.protein>=200?'rgba(34,197,94,0.7)':e.protein>=150?'rgba(234,179,8,0.7)':'rgba(239,68,68,0.7)'),borderRadius:3}]},options:cOpts});
+}
+function renderSleep(d){
+  dc('s');
+  charts.s=new Chart(document.getElementById('sleepChart'),{type:'line',data:{datasets:[{data:d.map(e=>({x:e.date,y:e.sleep_score})),borderColor:'#a855f7',backgroundColor:'rgba(168,85,247,0.1)',fill:true,tension:0.3,pointRadius:1,borderWidth:2}]},options:cOpts});
+}
+function renderEx(d){
+  dc('e');
+  charts.e=new Chart(document.getElementById('exChart'),{type:'bar',data:{datasets:[{data:d.map(e=>({x:e.date,y:e.exercise_minutes})),backgroundColor:'rgba(6,182,212,0.7)',borderRadius:3}]},options:cOpts});
+}
+
+function renderPrediction(){
+  dc('pred');
+  const w=allData.filter(d=>d.weight&&d.weight>150);
+  const pred=[];
+  for(let wk=0;wk<40;wk++){const d=new Date('2026-04-11');d.setDate(d.getDate()+wk*7);const pw=Math.max(GOAL,START_W-RATE*wk);pred.push({x:d.toISOString().slice(0,10),y:pw});if(pw<=GOAL)break;}
+  charts.pred=new Chart(document.getElementById('predChart'),{type:'line',data:{datasets:[
+    {label:'Actual',data:w.map(e=>({x:e.date,y:e.weight})),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.3,pointRadius:1.5,borderWidth:2},
+    {label:'Target',data:pred,borderColor:'#22c55e',borderDash:[6,4],pointRadius:0,borderWidth:2},
+    {label:'Goal',data:pred.map(d=>({x:d.x,y:GOAL})),borderColor:'#ef4444',borderDash:[3,3],pointRadius:0,borderWidth:1}
+  ]},options:{...cOpts,plugins:{legend:{display:true,labels:{color:'#71717a',font:{size:9},boxWidth:12}}},scales:{...cOpts.scales,x:{...cOpts.scales.x,time:{unit:'week'}},y:{...cOpts.scales.y,suggestedMin:GOAL-5}}}});
+}
+
+function renderDeficit(){
+  dc('def');
+  const d=allData.filter(e=>e.calories).slice(-30);
+  charts.def=new Chart(document.getElementById('deficitChart'),{type:'bar',data:{datasets:[{data:d.map(e=>({x:e.date,y:TDEE-e.calories})),backgroundColor:d.map(e=>{const def=TDEE-e.calories;return def>=800?'rgba(34,197,94,0.8)':def>=500?'rgba(234,179,8,0.8)':def>0?'rgba(249,115,22,0.8)':'rgba(239,68,68,0.8)';}),borderRadius:3}]},options:cOpts});
+}
+
+function renderCumulative(){
+  dc('cum');
+  let cum=0;
+  const d=allData.filter(e=>e.calories).map(e=>{cum+=TDEE-e.calories;return{x:e.date,y:(cum/3500).toFixed(1)};});
+  charts.cum=new Chart(document.getElementById('cumChart'),{type:'line',data:{datasets:[{data:d,borderColor:'#a855f7',backgroundColor:'rgba(168,85,247,0.1)',fill:true,tension:0.3,pointRadius:1,borderWidth:2}]},options:{...cOpts,scales:{...cOpts.scales,x:{...cOpts.scales.x,time:{unit:'week'}}}}});
+}
+
+function renderLog(){
+  const recent=allData.slice(-10).reverse();
+  document.getElementById('logList').innerHTML=recent.map(d=>{
+    const p=[];
+    if(d.weight&&d.weight>150)p.push(`⚖️ ${d.weight.toFixed(1)}`);
+    if(d.calories)p.push(`🔥 ${d.calories}`);
+    if(d.protein)p.push(`💪 ${Math.round(d.protein)}g`);
+    if(d.sleep_score)p.push(`😴 ${d.sleep_score}`);
+    const ex=d.exercises?`<div class="exercise">🏃 ${d.exercises.join(', ')} (${d.exercise_minutes}m)</div>`:'';
+    return `<div class="log-card"><div class="date">${d.date}</div><div class="stats">${p.join(' · ')||'No data'}</div>${ex}</div>`;
+  }).join('');
+}
+
+function renderDeficitLog(){
+  const logged=allData.filter(d=>d.calories).slice(-20).reverse();
+  let cum=0;
+  const all=allData.filter(d=>d.calories);
+  all.forEach(d=>cum+=TDEE-d.calories);
   
-  // Recent log
-  renderRecentLog();
-}
-
-function destroyChart(id) { if (charts[id]) { charts[id].destroy(); } }
-
-const commonOpts = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: { legend: { display: false } },
-  scales: {
-    x: { type: 'time', time: { unit: 'day' }, grid: { color: '#2a2d3a' }, ticks: { color: '#71717a', font: { size: 10 } } },
-    y: { grid: { color: '#2a2d3a' }, ticks: { color: '#71717a', font: { size: 10 } } }
-  }
-};
-
-function renderWeightChart(data) {
-  destroyChart('weight');
-  const d = data.filter(e=>e.weight);
-  const ctx = document.getElementById('weightChart');
-  ctx.parentElement.style.height = '250px';
-  
-  // Goal line
-  const goalData = d.map(e => ({x: e.date, y: 215}));
-  // Target trajectory (2 lbs/week from start)
-  const startDate = new Date('2026-04-11');
-  const trajData = d.map(e => {
-    const weeks = (new Date(e.date) - startDate) / (1000*60*60*24*7);
-    return {x: e.date, y: Math.max(215, 267 - weeks * 2)};
-  });
-  
-  charts.weight = new Chart(ctx, {
-    type: 'line',
-    data: {
-      datasets: [
-        { label: 'Weight', data: d.map(e=>({x:e.date,y:e.weight})), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', fill: true, tension: 0.3, pointRadius: 2 },
-        { label: 'Target (2 lb/wk)', data: trajData, borderColor: '#22c55e', borderDash: [5,5], pointRadius: 0, borderWidth: 1 },
-        { label: 'Goal (215)', data: goalData, borderColor: '#ef4444', borderDash: [3,3], pointRadius: 0, borderWidth: 1 }
-      ]
-    },
-    options: {...commonOpts, plugins: { legend: { display: true, labels: { color: '#71717a', font: { size: 10 } } } }}
-  });
-}
-
-function renderCalChart(data) {
-  destroyChart('cal');
-  const d = data.filter(e=>e.calories);
-  const ctx = document.getElementById('calChart');
-  ctx.parentElement.style.height = '200px';
-  charts.cal = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      datasets: [{
-        label: 'Calories',
-        data: d.map(e=>({x:e.date,y:e.calories})),
-        backgroundColor: d.map(e => e.calories <= 2000 ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.7)'),
-        borderRadius: 3
-      }]
-    },
-    options: {...commonOpts, plugins: { ...commonOpts.plugins, annotation: {} }}
-  });
-}
-
-function renderProteinChart(data) {
-  destroyChart('protein');
-  const d = data.filter(e=>e.protein);
-  const ctx = document.getElementById('proteinChart');
-  ctx.parentElement.style.height = '200px';
-  charts.protein = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      datasets: [{
-        label: 'Protein (g)',
-        data: d.map(e=>({x:e.date,y:e.protein})),
-        backgroundColor: d.map(e => e.protein >= 200 ? 'rgba(34,197,94,0.7)' : e.protein >= 150 ? 'rgba(234,179,8,0.7)' : 'rgba(239,68,68,0.7)'),
-        borderRadius: 3
-      }]
-    },
-    options: commonOpts
-  });
-}
-
-function renderSleepChart(data) {
-  destroyChart('sleep');
-  const d = data.filter(e=>e.sleep_score);
-  const ctx = document.getElementById('sleepChart');
-  ctx.parentElement.style.height = '200px';
-  charts.sleep = new Chart(ctx, {
-    type: 'line',
-    data: {
-      datasets: [{
-        label: 'Sleep Score',
-        data: d.map(e=>({x:e.date,y:e.sleep_score})),
-        borderColor: '#a855f7',
-        backgroundColor: 'rgba(168,85,247,0.1)',
-        fill: true, tension: 0.3, pointRadius: 1
-      }]
-    },
-    options: commonOpts
-  });
-}
-
-function renderExerciseChart(data) {
-  destroyChart('exercise');
-  const d = data.filter(e=>e.exercise_minutes);
-  const ctx = document.getElementById('exerciseChart');
-  ctx.parentElement.style.height = '200px';
-  charts.exercise = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      datasets: [{
-        label: 'Minutes',
-        data: d.map(e=>({x:e.date,y:e.exercise_minutes})),
-        backgroundColor: 'rgba(6,182,212,0.7)',
-        borderRadius: 3
-      }]
-    },
-    options: commonOpts
-  });
-}
-
-function renderMacroChart(data) {
-  destroyChart('macro');
-  const d = data.filter(e=>e.protein);
-  if (!d.length) return;
-  const avgP = avg(d.map(e=>e.protein));
-  const avgC = avg(d.map(e=>e.carbs||0));
-  const avgF = avg(d.map(e=>e.fat||0));
-  const ctx = document.getElementById('macroChart');
-  ctx.parentElement.style.height = '200px';
-  charts.macro = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: [`Protein ${Math.round(avgP)}g`, `Carbs ${Math.round(avgC)}g`, `Fat ${Math.round(avgF)}g`],
-      datasets: [{
-        data: [avgP*4, avgC*4, avgF*9],
-        backgroundColor: ['rgba(34,197,94,0.8)', 'rgba(59,130,246,0.8)', 'rgba(249,115,22,0.8)'],
-        borderWidth: 0
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: true, position: 'right', labels: { color: '#e4e4e7', font: { size: 11 } } } }
-    }
-  });
-}
-
-function renderHRChart(data) {
-  destroyChart('hr');
-  const d = data.filter(e=>e.rhr);
-  const ctx = document.getElementById('hrChart');
-  ctx.parentElement.style.height = '200px';
-  charts.hr = new Chart(ctx, {
-    type: 'line',
-    data: {
-      datasets: [{
-        label: 'RHR (bpm)',
-        data: d.map(e=>({x:e.date,y:e.rhr})),
-        borderColor: '#ef4444',
-        backgroundColor: 'rgba(239,68,68,0.1)',
-        fill: true, tension: 0.3, pointRadius: 1
-      }]
-    },
-    options: commonOpts
-  });
-}
-
-function renderRecentLog() {
-  const recent = allData.slice(-7).reverse();
-  const container = document.getElementById('recentLog');
-  container.innerHTML = recent.map(d => {
-    const parts = [];
-    if (d.weight) parts.push(`⚖️ ${d.weight.toFixed(1)} lbs`);
-    if (d.calories) parts.push(`🔥 ${d.calories} cal`);
-    if (d.protein) parts.push(`💪 ${d.protein.toFixed(0)}g protein`);
-    if (d.sleep_score) parts.push(`😴 Sleep: ${d.sleep_score}`);
-    if (d.water) parts.push(`💧 ${d.water.toFixed(0)}g water`);
-    const ex = d.exercises ? `<div class="exercise">🏃 ${d.exercises.join(', ')} (${d.exercise_minutes} min)</div>` : '';
-    return `<div class="log-entry"><div class="date">${d.date}</div><div class="stats">${parts.join(' · ') || 'No data logged'}</div>${ex}</div>`;
+  document.getElementById('deficitLog').innerHTML=logged.map(d=>{
+    const def=TDEE-d.calories;
+    const cls=def>=800?'good':def>=500?'warn':def>0?'warn':'bad';
+    const status=def>=800?'🟢':def>=500?'🟡':def>0?'🟠':'🔴';
+    return `<div class="log-card">
+      <div class="date">${d.date} ${status}</div>
+      <div class="stats">
+        🔥 ${d.calories.toLocaleString()} cal · Deficit: <span style="color:var(--${cls})">${def>=0?'-':'+'} ${Math.abs(def).toLocaleString()}</span>
+        ${d.weight&&d.weight>150?' · ⚖️ '+d.weight.toFixed(1):''}
+        ${d.protein?' · 💪 '+Math.round(d.protein)+'g':''}
+      </div>
+    </div>`;
   }).join('');
 }
 
 // Range picker
-document.querySelectorAll('.range-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentRange = btn.dataset.range === 'all' ? 'all' : parseInt(btn.dataset.range);
+document.querySelectorAll('.range-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.range-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    currentRange=b.dataset.range==='all'?'all':+b.dataset.range;
     render();
+  });
+});
+
+// Bottom nav
+document.querySelectorAll('.nav-item').forEach(n=>{
+  n.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active'));
+    n.classList.add('active');
+    document.getElementById('tab-'+n.dataset.tab).classList.add('active');
+    // Re-render charts for the new visible tab
+    setTimeout(()=>{
+      Object.values(charts).forEach(c=>{try{c.resize();}catch(e){}});
+    },100);
   });
 });
 
