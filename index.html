@@ -18,7 +18,7 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif; padding-bottom:calc(80px + var(--safe-bottom)); overflow-x:hidden; }
+body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif; padding-bottom:calc(90px + var(--safe-bottom)); overflow-x:hidden; }
 
 /* ===== TOP BAR ===== */
 .topbar { position:sticky; top:0; z-index:100; background:var(--bg); border-bottom:1px solid var(--border); padding:12px 16px; display:flex; justify-content:space-between; align-items:center; }
@@ -72,8 +72,8 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 .log-card .stats { font-size:12px; line-height:1.7; }
 .log-card .exercise { font-size:11px; color:var(--cyan); margin-top:4px; }
 
-/* ===== NAV ===== */
-.bottom-nav { position:fixed; bottom:0; left:0; right:0; background:rgba(26,29,39,0.92); border-top:1px solid var(--border); display:flex; padding:10px 0 calc(12px + var(--safe-bottom)); z-index:100; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+/* ===== NAV (fixed bottom on mobile, inline on desktop) ===== */
+.bottom-nav { position:fixed; bottom:0; left:0; right:0; background:rgba(26,29,39,0.95); border-top:1px solid var(--border); display:flex; padding:10px 0 calc(12px + var(--safe-bottom)); z-index:100; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); order:99; }
 .nav-item { flex:1; text-align:center; padding:4px; text-decoration:none; }
 .nav-item .icon { font-size:20px; }
 .nav-item .nav-label { font-size:10px; color:var(--muted); }
