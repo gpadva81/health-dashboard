@@ -272,11 +272,14 @@ const cOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:
 function renderWeight(d){
   dc('w');
   const pred=d.map(e=>{const w=(new Date(e.date)-new Date('2026-04-11'))/(6048e5);return{x:e.date,y:Math.max(GOAL,START_W-RATE*w)};});
+  const wts=d.map(e=>e.weight);
+  const wMin=wts.length?Math.floor(Math.min(...wts)-3):GOAL;
+  const wMax=wts.length?Math.ceil(Math.max(...wts)+3):280;
   charts.w=new Chart(document.getElementById('weightChart'),{type:'line',data:{datasets:[
     {label:'Weight',data:d.map(e=>({x:e.date,y:e.weight})),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.3,pointRadius:1.5,borderWidth:2},
     {label:'Target',data:pred,borderColor:'#22c55e',borderDash:[5,3],pointRadius:0,borderWidth:1.5},
     {label:'Goal',data:d.map(e=>({x:e.date,y:GOAL})),borderColor:'#ef4444',borderDash:[3,3],pointRadius:0,borderWidth:1}
-  ]},options:{...cOpts,plugins:{legend:{display:true,labels:{color:'#71717a',font:{size:9},boxWidth:12}}}}});
+  ]},options:{...cOpts,plugins:{legend:{display:true,labels:{color:'#71717a',font:{size:9},boxWidth:12}}},scales:{...cOpts.scales,y:{...cOpts.scales.y,min:wMin,max:wMax}}}});
 }
 function renderCal(d){
   dc('c');
@@ -351,7 +354,7 @@ function renderPrediction(data){
     {label:'Goal',data:predFiltered.map(d=>({x:d.x,y:GOAL})),borderColor:'#ef4444',borderDash:[3,3],pointRadius:0,borderWidth:1}
   ];
   if(defPred.length>1){
-    datasets.splice(1,0,{label:'Deficit Predicted',data:defPred,borderColor:'#f97316',backgroundColor:'rgba(249,115,22,0.05)',fill:false,tension:0.3,pointRadius:0,borderWidth:2,borderDash:[2,2]});
+    datasets.splice(1,0,{label:'Deficit Predicted',data:defPred,borderColor:'#f97316',backgroundColor:'rgba(249,115,22,0.08)',fill:false,tension:0.3,pointRadius:1,borderWidth:2.5});
   }
   
   // Set explicit x-axis bounds from data range
@@ -364,7 +367,12 @@ function renderPrediction(data){
     xMax=last.toISOString().slice(0,10);
   }
   
-  charts.pred=new Chart(document.getElementById('predChart'),{type:'line',data:{datasets},options:{...cOpts,plugins:{legend:{display:true,labels:{color:'#71717a',font:{size:9},boxWidth:12}}},scales:{x:{...cOpts.scales.x,min:xMin,max:xMax,time:{unit:currentRange==='all'||currentRange>=90?'month':currentRange>=30?'week':'day'}},y:{...cOpts.scales.y,suggestedMin:GOAL-5}}}});
+  // Compute sensible y-axis bounds from actual weight data
+  const allWeights=w.map(e=>e.weight).concat(defPred.map(e=>e.y));
+  const yMin=allWeights.length?Math.floor(Math.min(...allWeights)-5):GOAL-5;
+  const yMax=allWeights.length?Math.ceil(Math.max(...allWeights)+5):300;
+  
+  charts.pred=new Chart(document.getElementById('predChart'),{type:'line',data:{datasets},options:{...cOpts,plugins:{legend:{display:true,labels:{color:'#71717a',font:{size:9},boxWidth:12}}},scales:{x:{...cOpts.scales.x,min:xMin,max:xMax,time:{unit:currentRange==='all'||currentRange>=90?'month':currentRange>=30?'week':'day'}},y:{...cOpts.scales.y,min:yMin,max:yMax}}}});
 }
 
 function renderDeficit(d){
