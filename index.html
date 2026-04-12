@@ -254,17 +254,17 @@ function render(){
   document.getElementById('mCarb').textContent=today&&today.carbs?Math.round(today.carbs)+'g':'—';
   document.getElementById('mFat').textContent=today&&today.fat?Math.round(today.fat)+'g':'—';
   
-  // Charts
+  // Charts — ALL use filtered data
   renderWeight(data.filter(d=>d.weight&&d.weight>150));
   renderCal(data.filter(d=>d.calories));
   renderProt(data.filter(d=>d.protein));
   renderSleep(data.filter(d=>d.sleep_score));
   renderEx(data.filter(d=>d.exercise_minutes));
-  renderPrediction();
-  renderDeficit();
-  renderCumulative();
-  renderLog();
-  renderDeficitLog();
+  renderPrediction(data);
+  renderDeficit(data.filter(d=>d.calories));
+  renderCumulative(data.filter(d=>d.calories));
+  renderLog(data);
+  renderDeficitLog(data.filter(d=>d.calories));
 }
 
 const cOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{type:'time',time:{unit:'day',displayFormats:{day:'M/d'}},grid:{color:'#2a2d3a'},ticks:{color:'#9ca3af',font:{size:11},maxRotation:0,maxTicksLimit:6}},y:{grid:{color:'#2a2d3a'},ticks:{color:'#9ca3af',font:{size:11},maxTicksLimit:5}}}};
@@ -295,33 +295,82 @@ function renderEx(d){
   charts.e=new Chart(document.getElementById('exChart'),{type:'bar',data:{datasets:[{data:d.map(e=>({x:e.date,y:e.exercise_minutes})),backgroundColor:'rgba(6,182,212,0.7)',borderRadius:3}]},options:cOpts});
 }
 
-function renderPrediction(){
+function renderPrediction(data){
   dc('pred');
-  const w=allData.filter(d=>d.weight&&d.weight>150);
+  const w=data.filter(d=>d.weight&&d.weight>150);
+  
+  // Target line (fixed 2 lb/wk from plan start)
   const pred=[];
-  for(let wk=0;wk<40;wk++){const d=new Date('2026-04-11');d.setDate(d.getDate()+wk*7);const pw=Math.max(GOAL,START_W-RATE*wk);pred.push({x:d.toISOString().slice(0,10),y:pw});if(pw<=GOAL)break;}
-  charts.pred=new Chart(document.getElementById('predChart'),{type:'line',data:{datasets:[
+  for(let wk=0;wk<52;wk++){const d=new Date('2026-04-11');d.setDate(d.getDate()+wk*7);const pw=Math.max(GOAL,START_W-RATE*wk);pred.push({x:d.toISOString().slice(0,10),y:pw});if(pw<=GOAL)break;}
+  // Filter pred to data range
+  const minDate=data.length?data[0].date:'2025-01-01';
+  const maxDate=pred[pred.length-1]?.x||'2027-01-01';
+  const predFiltered=pred.filter(p=>p.x>=minDate);
+  
+  // Deficit-predicted weight: start from first known weight, subtract daily calorie deficit / 3500
+  const defPred=[];
+  if(w.length){
+    let runW=w[0].weight;
+    let lastDate=w[0].date;
+    defPred.push({x:lastDate,y:runW});
+    // Walk through all days in range
+    for(const day of data){
+      if(day.date<=lastDate) continue;
+      // Days elapsed since last point
+      const daysBetween=(new Date(day.date)-new Date(lastDate))/(864e5);
+      if(day.calories){
+        // Use actual logged deficit
+        const dailyDef=(TDEE-day.calories)/3500;
+        runW-=dailyDef;
+      } else {
+        // Assume TDEE (no deficit) for unlogged days
+        // No weight change
+      }
+      // If we have an actual weight, snap to it
+      if(day.weight&&day.weight>150) runW=day.weight;
+      defPred.push({x:day.date,y:Math.round(runW*10)/10});
+      lastDate=day.date;
+    }
+    // Project forward 4 weeks from last point using recent avg deficit
+    const recentCal=data.filter(d=>d.calories).slice(-14);
+    if(recentCal.length>=3){
+      const avgDailyDef=avg(recentCal.map(d=>TDEE-d.calories));
+      const lastPt=defPred[defPred.length-1];
+      let projW=lastPt.y;
+      for(let d=7;d<=28;d+=7){
+        projW-=(avgDailyDef*7)/3500;
+        const dt=new Date(lastPt.x);dt.setDate(dt.getDate()+d);
+        defPred.push({x:dt.toISOString().slice(0,10),y:Math.round(Math.max(GOAL,projW)*10)/10});
+      }
+    }
+  }
+  
+  const datasets=[
     {label:'Actual',data:w.map(e=>({x:e.date,y:e.weight})),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.3,pointRadius:1.5,borderWidth:2},
-    {label:'Target',data:pred,borderColor:'#22c55e',borderDash:[6,4],pointRadius:0,borderWidth:2},
-    {label:'Goal',data:pred.map(d=>({x:d.x,y:GOAL})),borderColor:'#ef4444',borderDash:[3,3],pointRadius:0,borderWidth:1}
-  ]},options:{...cOpts,plugins:{legend:{display:true,labels:{color:'#71717a',font:{size:9},boxWidth:12}}},scales:{...cOpts.scales,x:{...cOpts.scales.x,time:{unit:'week'}},y:{...cOpts.scales.y,suggestedMin:GOAL-5}}}});
+    {label:'Target (2lb/wk)',data:predFiltered,borderColor:'#22c55e',borderDash:[6,4],pointRadius:0,borderWidth:1.5},
+    {label:'Goal',data:predFiltered.map(d=>({x:d.x,y:GOAL})),borderColor:'#ef4444',borderDash:[3,3],pointRadius:0,borderWidth:1}
+  ];
+  if(defPred.length>1){
+    datasets.splice(1,0,{label:'Deficit Predicted',data:defPred,borderColor:'#f97316',backgroundColor:'rgba(249,115,22,0.05)',fill:false,tension:0.3,pointRadius:0,borderWidth:2,borderDash:[2,2]});
+  }
+  
+  charts.pred=new Chart(document.getElementById('predChart'),{type:'line',data:{datasets},options:{...cOpts,plugins:{legend:{display:true,labels:{color:'#71717a',font:{size:9},boxWidth:12}}},scales:{...cOpts.scales,x:{...cOpts.scales.x,time:{unit:currentRange==='all'||currentRange>=90?'month':'week'}},y:{...cOpts.scales.y,suggestedMin:GOAL-5}}}});
 }
 
-function renderDeficit(){
+function renderDeficit(d){
   dc('def');
-  const d=allData.filter(e=>e.calories).slice(-30);
   charts.def=new Chart(document.getElementById('deficitChart'),{type:'bar',data:{datasets:[{data:d.map(e=>({x:e.date,y:TDEE-e.calories})),backgroundColor:d.map(e=>{const def=TDEE-e.calories;return def>=800?'rgba(34,197,94,0.8)':def>=500?'rgba(234,179,8,0.8)':def>0?'rgba(249,115,22,0.8)':'rgba(239,68,68,0.8)';}),borderRadius:3}]},options:cOpts});
 }
 
-function renderCumulative(){
+function renderCumulative(d){
   dc('cum');
   let cum=0;
-  const d=allData.filter(e=>e.calories).map(e=>{cum+=TDEE-e.calories;return{x:e.date,y:(cum/3500).toFixed(1)};});
-  charts.cum=new Chart(document.getElementById('cumChart'),{type:'line',data:{datasets:[{data:d,borderColor:'#a855f7',backgroundColor:'rgba(168,85,247,0.1)',fill:true,tension:0.3,pointRadius:1,borderWidth:2}]},options:{...cOpts,scales:{...cOpts.scales,x:{...cOpts.scales.x,time:{unit:'week'}}}}});
+  const pts=d.map(e=>{cum+=TDEE-e.calories;return{x:e.date,y:(cum/3500).toFixed(1)};});
+  charts.cum=new Chart(document.getElementById('cumChart'),{type:'line',data:{datasets:[{data:pts,borderColor:'#a855f7',backgroundColor:'rgba(168,85,247,0.1)',fill:true,tension:0.3,pointRadius:1,borderWidth:2}]},options:{...cOpts,scales:{...cOpts.scales,x:{...cOpts.scales.x,time:{unit:currentRange==='all'||currentRange>=90?'month':'week'}}}}});
 }
 
-function renderLog(){
-  const recent=allData.slice(-10).reverse();
+function renderLog(data){
+  const recent=data.slice(-10).reverse();
   document.getElementById('logList').innerHTML=recent.map(d=>{
     const p=[];
     if(d.weight&&d.weight>150)p.push(`⚖️ ${d.weight.toFixed(1)}`);
@@ -333,11 +382,8 @@ function renderLog(){
   }).join('');
 }
 
-function renderDeficitLog(){
-  const logged=allData.filter(d=>d.calories).slice(-20).reverse();
-  let cum=0;
-  const all=allData.filter(d=>d.calories);
-  all.forEach(d=>cum+=TDEE-d.calories);
+function renderDeficitLog(filtered){
+  const logged=filtered.slice(-20).reverse();
   
   document.getElementById('deficitLog').innerHTML=logged.map(d=>{
     const def=TDEE-d.calories;
