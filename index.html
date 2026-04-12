@@ -354,19 +354,31 @@ function renderPrediction(data){
     datasets.splice(1,0,{label:'Deficit Predicted',data:defPred,borderColor:'#f97316',backgroundColor:'rgba(249,115,22,0.05)',fill:false,tension:0.3,pointRadius:0,borderWidth:2,borderDash:[2,2]});
   }
   
-  charts.pred=new Chart(document.getElementById('predChart'),{type:'line',data:{datasets},options:{...cOpts,plugins:{legend:{display:true,labels:{color:'#71717a',font:{size:9},boxWidth:12}}},scales:{...cOpts.scales,x:{...cOpts.scales.x,time:{unit:currentRange==='all'||currentRange>=90?'month':'week'}},y:{...cOpts.scales.y,suggestedMin:GOAL-5}}}});
+  // Set explicit x-axis bounds from data range
+  const xMin=data.length?data[0].date:undefined;
+  // Extend max slightly for predictions
+  let xMax;
+  if(data.length){
+    const last=new Date(data[data.length-1].date);
+    last.setDate(last.getDate()+(currentRange==='all'?90:Math.min(currentRange,30)));
+    xMax=last.toISOString().slice(0,10);
+  }
+  
+  charts.pred=new Chart(document.getElementById('predChart'),{type:'line',data:{datasets},options:{...cOpts,plugins:{legend:{display:true,labels:{color:'#71717a',font:{size:9},boxWidth:12}}},scales:{x:{...cOpts.scales.x,min:xMin,max:xMax,time:{unit:currentRange==='all'||currentRange>=90?'month':currentRange>=30?'week':'day'}},y:{...cOpts.scales.y,suggestedMin:GOAL-5}}}});
 }
 
 function renderDeficit(d){
   dc('def');
-  charts.def=new Chart(document.getElementById('deficitChart'),{type:'bar',data:{datasets:[{data:d.map(e=>({x:e.date,y:TDEE-e.calories})),backgroundColor:d.map(e=>{const def=TDEE-e.calories;return def>=800?'rgba(34,197,94,0.8)':def>=500?'rgba(234,179,8,0.8)':def>0?'rgba(249,115,22,0.8)':'rgba(239,68,68,0.8)';}),borderRadius:3}]},options:cOpts});
+  const timeUnit=currentRange==='all'||currentRange>=90?'week':currentRange>=30?'week':'day';
+  charts.def=new Chart(document.getElementById('deficitChart'),{type:'bar',data:{datasets:[{data:d.map(e=>({x:e.date,y:TDEE-e.calories})),backgroundColor:d.map(e=>{const def=TDEE-e.calories;return def>=800?'rgba(34,197,94,0.8)':def>=500?'rgba(234,179,8,0.8)':def>0?'rgba(249,115,22,0.8)':'rgba(239,68,68,0.8)';}),borderRadius:3}]},options:{...cOpts,scales:{...cOpts.scales,x:{...cOpts.scales.x,time:{unit:timeUnit}}}}});
 }
 
 function renderCumulative(d){
   dc('cum');
   let cum=0;
   const pts=d.map(e=>{cum+=TDEE-e.calories;return{x:e.date,y:(cum/3500).toFixed(1)};});
-  charts.cum=new Chart(document.getElementById('cumChart'),{type:'line',data:{datasets:[{data:pts,borderColor:'#a855f7',backgroundColor:'rgba(168,85,247,0.1)',fill:true,tension:0.3,pointRadius:1,borderWidth:2}]},options:{...cOpts,scales:{...cOpts.scales,x:{...cOpts.scales.x,time:{unit:currentRange==='all'||currentRange>=90?'month':'week'}}}}});
+  const timeUnit=currentRange==='all'||currentRange>=90?'month':currentRange>=30?'week':'day';
+  charts.cum=new Chart(document.getElementById('cumChart'),{type:'line',data:{datasets:[{data:pts,borderColor:'#a855f7',backgroundColor:'rgba(168,85,247,0.1)',fill:true,tension:0.3,pointRadius:1,borderWidth:2}]},options:{...cOpts,scales:{...cOpts.scales,x:{...cOpts.scales.x,time:{unit:timeUnit}}}}});
 }
 
 function renderLog(data){
