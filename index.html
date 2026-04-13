@@ -92,6 +92,39 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 .macro-pill.c .num { color:var(--blue); }
 .macro-pill.f .num { color:var(--orange); }
 
+/* ===== MEAL PLAN TAB ===== */
+.meals-section { padding:8px 12px; }
+.meal-picker { display:flex; gap:6px; margin-bottom:12px; }
+.meal-btn { flex:1; background:var(--card); border:1px solid var(--border); color:var(--muted); padding:10px 8px; border-radius:10px; font-size:12px; font-weight:600; text-align:center; cursor:pointer; -webkit-appearance:none; transition:all 0.2s; }
+.meal-btn.active { background:var(--green); color:#000; border-color:var(--green); }
+.meal-totals { display:flex; gap:8px; margin-bottom:12px; }
+.mt-item { flex:1; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px; text-align:center; }
+.mt-val { display:block; font-size:20px; font-weight:800; }
+.mt-val.mt-green { color:var(--green); }
+.mt-lbl { font-size:10px; color:var(--muted); text-transform:uppercase; }
+.meal-template { display:none; }
+.meal-template.active { display:block; }
+.meal-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:8px; }
+.meal-card.snack-card { border-left:3px solid var(--yellow); }
+.meal-header { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+.meal-icon { font-size:20px; }
+.meal-title { font-size:15px; font-weight:700; flex:1; }
+.meal-cals { font-size:12px; color:var(--green); font-weight:600; white-space:nowrap; }
+.meal-items { display:flex; flex-direction:column; gap:6px; }
+.meal-item { display:flex; justify-content:space-between; align-items:baseline; gap:8px; font-size:13px; padding:4px 0; border-bottom:1px solid rgba(42,45,58,0.5); }
+.meal-item:last-child { border-bottom:none; }
+.mi-detail { font-size:11px; color:var(--muted); text-align:right; white-space:nowrap; }
+.rules-card, .avoid-card, .supps-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:8px; }
+.rules-card h3, .avoid-card h3, .supps-card h3 { font-size:14px; margin-bottom:10px; }
+.rule { font-size:12px; line-height:1.8; color:var(--text); }
+.avoid-card { border-left:3px solid var(--red); }
+.avoid-item { font-size:12px; line-height:1.8; color:var(--muted); }
+.avoid-item::before { content:'✗ '; color:var(--red); }
+.supp-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(42,45,58,0.5); font-size:12px; }
+.supp-row:last-child { border-bottom:none; }
+.supp-name { color:var(--text); }
+.supp-dose { color:var(--cyan); font-weight:600; }
+
 /* ===== DESKTOP / TABLET ===== */
 @media(min-width:768px) {
   body { max-width:1200px; margin:0 auto; padding-bottom:20px; }
@@ -117,6 +150,9 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
   .nav-item .nav-label { font-size:12px; }
   .nav-item.active { background:var(--blue); border-color:var(--blue); }
   .nav-item.active .nav-label { color:white; }
+  /* Meals section desktop */
+  .meals-section { padding:8px 24px; max-width:800px; }
+  .meal-picker { max-width:500px; }
   /* Data table wider */
   #tab-data>div { padding:10px 24px!important; }
   /* Log grid on desktop */
@@ -171,6 +207,7 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
   <a class="nav-item" data-tab="data"><div class="icon">📋</div><div class="nav-label">Data</div></a>
   <a class="nav-item" data-tab="predict"><div class="icon">📉</div><div class="nav-label">Predictor</div></a>
   <a class="nav-item" data-tab="log"><div class="icon">🗒️</div><div class="nav-label">Log</div></a>
+  <a class="nav-item" data-tab="meals"><div class="icon">🍽️</div><div class="nav-label">Meals</div></a>
 </div>
 
 <!-- RANGE PICKER -->
@@ -247,6 +284,165 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
         </thead>
         <tbody id="dataTableBody"></tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- TAB: MEAL PLAN -->
+<div class="tab-content" id="tab-meals">
+  <div class="meals-section">
+    <!-- Meal plan selector -->
+    <div class="meal-picker">
+      <button class="meal-btn active" data-meal="a">🅰️ High Protein</button>
+      <button class="meal-btn" data-meal="b">🅱️ Mediterranean</button>
+      <button class="meal-btn" data-meal="c">⚡ Simple & Fast</button>
+    </div>
+
+    <!-- Totals bar -->
+    <div class="meal-totals" id="mealTotals">
+      <div class="mt-item"><span class="mt-val" id="mtCal">~1,800</span><span class="mt-lbl">cal</span></div>
+      <div class="mt-item"><span class="mt-val mt-green" id="mtProt">210g</span><span class="mt-lbl">protein</span></div>
+      <div class="mt-item"><span class="mt-val" id="mtBuffer">200</span><span class="mt-lbl">cal buffer</span></div>
+    </div>
+
+    <!-- Template A -->
+    <div class="meal-template active" id="meal-a">
+      <div class="meal-card">
+        <div class="meal-header"><span class="meal-icon">🥤</span><span class="meal-title">Post-Workout Shake</span><span class="meal-cals">400 cal · 55g P</span></div>
+        <div class="meal-items">
+          <div class="meal-item"><span>Vega Sport Protein Chocolate</span><span class="mi-detail">2 scoops · 320 cal · 40g P</span></div>
+          <div class="meal-item"><span>Banana (half)</span><span class="mi-detail">52 cal · 0.5g P</span></div>
+          <div class="meal-item"><span>Unsweetened almond milk</span><span class="mi-detail">1 cup · 30 cal · 1g P</span></div>
+          <div class="meal-item"><span>Peanut butter</span><span class="mi-detail">1 tbsp · 95 cal · 4g P</span></div>
+        </div>
+      </div>
+      <div class="meal-card">
+        <div class="meal-header"><span class="meal-icon">🍗</span><span class="meal-title">Chicken & Rice Bowl</span><span class="meal-cals">550 cal · 65g P</span></div>
+        <div class="meal-items">
+          <div class="meal-item"><span>Chicken breast, grilled</span><span class="mi-detail">8 oz · 260 cal · 52g P</span></div>
+          <div class="meal-item"><span>White rice, steamed</span><span class="mi-detail">¾ cup · 154 cal · 3g P</span></div>
+          <div class="meal-item"><span>Mixed veg (broccoli, cauliflower)</span><span class="mi-detail">1.5 cups · 60 cal · 4g P</span></div>
+          <div class="meal-item"><span>TJ's salad kit (side)</span><span class="mi-detail">1 cup · 70 cal · 2g P</span></div>
+          <div class="meal-item"><span>Hot sauce / lemon juice</span><span class="mi-detail">flavor</span></div>
+        </div>
+      </div>
+      <div class="meal-card">
+        <div class="meal-header"><span class="meal-icon">🥚</span><span class="meal-title">Eggs & Lean Protein</span><span class="meal-cals">550 cal · 60g P</span></div>
+        <div class="meal-items">
+          <div class="meal-item"><span>Eggs, cooked</span><span class="mi-detail">4 large · 310 cal · 24g P</span></div>
+          <div class="meal-item"><span>Chicken breast</span><span class="mi-detail">4 oz · 130 cal · 26g P</span></div>
+          <div class="meal-item"><span>Cauliflower, cooked</span><span class="mi-detail">150g · 35 cal · 3g P</span></div>
+          <div class="meal-item"><span>Mixed greens + vinaigrette</span><span class="mi-detail">1 cup · 75 cal · 2g P</span></div>
+        </div>
+      </div>
+      <div class="meal-card snack-card">
+        <div class="meal-header"><span class="meal-icon">🍫</span><span class="meal-title">Snack: Protein Bar</span><span class="meal-cals">300 cal · 30g P</span></div>
+        <div class="meal-items">
+          <div class="meal-item"><span>Kirkland or Musashi Protein Bar</span><span class="mi-detail">1 bar · ~300 cal · 30g P</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Template B -->
+    <div class="meal-template" id="meal-b">
+      <div class="meal-card">
+        <div class="meal-header"><span class="meal-icon">🥣</span><span class="meal-title">Greek Protein Bowl</span><span class="meal-cals">450 cal · 50g P</span></div>
+        <div class="meal-items">
+          <div class="meal-item"><span>Greek yogurt (0% fat)</span><span class="mi-detail">1 cup · 130 cal · 22g P</span></div>
+          <div class="meal-item"><span>Vega Sport Protein</span><span class="mi-detail">1 scoop · 160 cal · 20g P</span></div>
+          <div class="meal-item"><span>Berries</span><span class="mi-detail">½ cup · 40 cal · 0.5g P</span></div>
+          <div class="meal-item"><span>Almonds</span><span class="mi-detail">10 · 70 cal · 2.5g P</span></div>
+          <div class="meal-item"><span>Chia seeds</span><span class="mi-detail">1 tbsp · 50 cal · 2g P</span></div>
+        </div>
+      </div>
+      <div class="meal-card">
+        <div class="meal-header"><span class="meal-icon">🐟</span><span class="meal-title">Salmon & Vegetables</span><span class="meal-cals">600 cal · 55g P</span></div>
+        <div class="meal-items">
+          <div class="meal-item"><span>Salmon fillet</span><span class="mi-detail">6 oz · 350 cal · 40g P</span></div>
+          <div class="meal-item"><span>Sweet potato</span><span class="mi-detail">1 medium · 115 cal · 2g P</span></div>
+          <div class="meal-item"><span>Roasted asparagus</span><span class="mi-detail">1 cup · 40 cal · 4g P</span></div>
+          <div class="meal-item"><span>Olive oil drizzle</span><span class="mi-detail">1 tsp · 40 cal</span></div>
+        </div>
+      </div>
+      <div class="meal-card">
+        <div class="meal-header"><span class="meal-icon">🦃</span><span class="meal-title">Turkey & Egg Scramble</span><span class="meal-cals">500 cal · 60g P</span></div>
+        <div class="meal-items">
+          <div class="meal-item"><span>Ground turkey (93% lean)</span><span class="mi-detail">6 oz · 240 cal · 36g P</span></div>
+          <div class="meal-item"><span>Eggs</span><span class="mi-detail">3 large · 210 cal · 18g P</span></div>
+          <div class="meal-item"><span>Spinach</span><span class="mi-detail">2 cups · 14 cal · 2g P</span></div>
+          <div class="meal-item"><span>Bell peppers</span><span class="mi-detail">½ cup · 20 cal · 0.5g P</span></div>
+          <div class="meal-item"><span>Salsa</span><span class="mi-detail">2 tbsp · 10 cal</span></div>
+        </div>
+      </div>
+      <div class="meal-card snack-card">
+        <div class="meal-header"><span class="meal-icon">🥤</span><span class="meal-title">Snack: Protein Shake</span><span class="meal-cals">250 cal · 35g P</span></div>
+        <div class="meal-items">
+          <div class="meal-item"><span>Vega Sport Protein</span><span class="mi-detail">1.5 scoops + water + ice · 240 cal · 30g P</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Template C -->
+    <div class="meal-template" id="meal-c">
+      <div class="meal-card">
+        <div class="meal-header"><span class="meal-icon">🥤</span><span class="meal-title">Protein Shake</span><span class="meal-cals">350 cal · 50g P</span></div>
+        <div class="meal-items">
+          <div class="meal-item"><span>Vega Sport</span><span class="mi-detail">2 scoops + water + banana</span></div>
+        </div>
+      </div>
+      <div class="meal-card">
+        <div class="meal-header"><span class="meal-icon">🥘</span><span class="meal-title">Chicken Stir-Fry</span><span class="meal-cals">600 cal · 60g P</span></div>
+        <div class="meal-items">
+          <div class="meal-item"><span>Chicken breast</span><span class="mi-detail">8 oz · 260 cal · 52g P</span></div>
+          <div class="meal-item"><span>Mixed stir-fry vegetables</span><span class="mi-detail">2 cups · 80 cal · 4g P</span></div>
+          <div class="meal-item"><span>Rice</span><span class="mi-detail">½ cup · 103 cal · 2g P</span></div>
+          <div class="meal-item"><span>Soy sauce + ginger</span><span class="mi-detail">flavor</span></div>
+        </div>
+      </div>
+      <div class="meal-card">
+        <div class="meal-header"><span class="meal-icon">🥩</span><span class="meal-title">Steak & Salad</span><span class="meal-cals">600 cal · 55g P</span></div>
+        <div class="meal-items">
+          <div class="meal-item"><span>Lean sirloin steak</span><span class="mi-detail">6 oz · 280 cal · 42g P</span></div>
+          <div class="meal-item"><span>Large mixed salad</span><span class="mi-detail">3 cups · 45 cal · 3g P</span></div>
+          <div class="meal-item"><span>Avocado</span><span class="mi-detail">¼ · 60 cal · 1g P</span></div>
+          <div class="meal-item"><span>Olive oil + vinegar</span><span class="mi-detail">1 tbsp · 120 cal</span></div>
+          <div class="meal-item"><span>Cherry tomatoes</span><span class="mi-detail">½ cup · 15 cal</span></div>
+        </div>
+      </div>
+      <div class="meal-card snack-card">
+        <div class="meal-header"><span class="meal-icon">🍊</span><span class="meal-title">Snack: Bar + Fruit</span><span class="meal-cals">350 cal · 35g P</span></div>
+        <div class="meal-items">
+          <div class="meal-item"><span>Power Crunch bar</span><span class="mi-detail">1 bar · 215 cal · 14g P</span></div>
+          <div class="meal-item"><span>Sumo citrus mandarin</span><span class="mi-detail">1 · 150 cal · 2g P</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Key Rules -->
+    <div class="rules-card">
+      <h3>📋 Key Rules</h3>
+      <div class="rule">1. <strong>Log everything in Cronometer BEFORE you eat</strong> — plan meals, don't just track after</div>
+      <div class="rule">2. <strong>Protein first</strong> — eat protein portion before carbs/fats</div>
+      <div class="rule">3. <strong>No liquid calories</strong> except protein shakes</div>
+      <div class="rule">4. <strong>Prep chicken in bulk</strong> — cook 3-4 lbs Sunday, portion for the week</div>
+      <div class="rule">5. <strong>Weigh food</strong> — eyeballing = underestimating. Use a food scale.</div>
+    </div>
+
+    <!-- Avoid section -->
+    <div class="avoid-card">
+      <h3>🚫 Foods to Avoid</h3>
+      <div class="avoid-item">Ketchup chips — 750 cal for 150g with barely any protein</div>
+      <div class="avoid-item">Matzo + peanut butter as a meal — low protein density</div>
+      <div class="avoid-item">Any meal under 20g protein</div>
+    </div>
+
+    <!-- Supplements -->
+    <div class="supps-card">
+      <h3>💊 Supplements</h3>
+      <div class="supp-row"><span class="supp-name">Creatine monohydrate</span><span class="supp-dose">5g daily</span></div>
+      <div class="supp-row"><span class="supp-name">Vitamin D</span><span class="supp-dose">2000-4000 IU</span></div>
+      <div class="supp-row"><span class="supp-name">Magnesium</span><span class="supp-dose">400mg before bed</span></div>
+      <div class="supp-row"><span class="supp-name">Fish oil</span><span class="supp-dose">2-3g EPA/DHA</span></div>
     </div>
   </div>
 </div>
@@ -607,6 +803,21 @@ document.querySelectorAll('.nav-item').forEach(n=>{
     setTimeout(()=>{
       Object.values(charts).forEach(c=>{try{c.resize();}catch(e){}});
     },100);
+  });
+});
+
+// Meal plan picker
+const mealTotals={a:{cal:'~1,800',prot:'210g',buf:'200'},b:{cal:'~1,800',prot:'200g',buf:'200'},c:{cal:'~1,900',prot:'200g',buf:'100'}};
+document.querySelectorAll('.meal-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.meal-btn').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.meal-template').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('meal-'+b.dataset.meal).classList.add('active');
+    const t=mealTotals[b.dataset.meal];
+    document.getElementById('mtCal').textContent=t.cal;
+    document.getElementById('mtProt').textContent=t.prot;
+    document.getElementById('mtBuffer').textContent=t.buf;
   });
 });
 
