@@ -276,7 +276,7 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
             <th style="padding:8px 6px;text-align:left;color:var(--muted);font-size:10px;white-space:nowrap;">Date</th>
             <th style="padding:8px 6px;text-align:left;color:var(--muted);font-size:10px;white-space:nowrap;">Day</th>
             <th style="padding:8px 6px;text-align:right;color:var(--muted);font-size:10px;white-space:nowrap;">Weight</th>
-            <th style="padding:8px 6px;text-align:right;color:var(--muted);font-size:10px;white-space:nowrap;">Steps</th>
+            <th style="padding:8px 6px;text-align:right;color:var(--muted);font-size:10px;white-space:nowrap;">Active</th>
             <th style="padding:8px 6px;text-align:right;color:var(--muted);font-size:10px;white-space:nowrap;">Sleep</th>
             <th style="padding:8px 6px;text-align:right;color:var(--muted);font-size:10px;white-space:nowrap;">Cals</th>
             <th style="padding:8px 6px;text-align:left;color:var(--muted);font-size:10px;white-space:nowrap;">Exercise</th>
@@ -753,7 +753,7 @@ function renderDataTable(data){
     const dt=new Date(d.date);
     const day=DAYS[dt.getUTCDay()];
     const w=d.weight&&d.weight>150?d.weight.toFixed(1):'';
-    const steps=d.exercise_calories?Math.round(d.exercise_calories/0.04):''; // rough step estimate from cal
+    // No step data from Cronometer — show exercise minutes instead
     const sleep=d.sleep_score?((d.sleep_score/100*8).toFixed(1)):''; // estimate hours from score
     const cals=d.calories||'';
     const ex=d.exercises?d.exercises.join(', '):'';
