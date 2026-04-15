@@ -71,6 +71,18 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 .log-card .date { font-size:12px; color:var(--blue); font-weight:600; margin-bottom:4px; }
 .log-card .stats { font-size:12px; line-height:1.7; }
 .log-card .exercise { font-size:11px; color:var(--cyan); margin-top:4px; }
+.log-card { cursor:pointer; transition:background 0.2s, border-color 0.2s; }
+.log-card:active { background:#22253a; }
+.log-card.expanded { border-color:var(--blue); }
+.log-detail { display:none; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+.log-card.expanded .log-detail { display:block; }
+.detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:10px; }
+.detail-item { font-size:11px; padding:6px 8px; background:rgba(255,255,255,0.03); border-radius:6px; }
+.detail-item .dl { color:var(--muted); font-size:9px; text-transform:uppercase; letter-spacing:0.3px; }
+.detail-item .dv { font-weight:700; font-size:14px; margin-top:1px; }
+.detail-sparkline { height:60px; margin-top:8px; }
+.detail-sparkline canvas { width:100%!important; height:60px!important; }
+.trend-label { font-size:10px; color:var(--muted); margin-top:8px; margin-bottom:4px; }
 
 /* ===== NAV (fixed bottom on mobile, inline on desktop) ===== */
 .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:rgba(26,29,39,0.95); border-top:1px solid var(--border); display:flex; padding:10px 0 calc(12px + var(--safe-bottom)); z-index:100; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); order:99; }
@@ -169,9 +181,17 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 <!-- TOP BAR -->
 <div class="topbar">
   <h1>🔥 <span>THE CUT</span></h1>
-  <div class="weeks" id="weeksToGoal">
-    <span id="weeksNum">—</span>
-    <small>weeks to 215 lbs</small>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div style="text-align:right;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;">Predicted</div>
+      <div id="predictedWeight" style="font-size:22px;font-weight:800;color:var(--cyan);line-height:1.1;">—</div>
+      <div id="predictedSub" style="font-size:9px;color:var(--muted);">lbs</div>
+    </div>
+    <div style="width:1px;height:32px;background:var(--border);"></div>
+    <div class="weeks" id="weeksToGoal">
+      <span id="weeksNum">—</span>
+      <small>weeks to 215 lbs</small>
+    </div>
   </div>
 </div>
 
@@ -454,6 +474,71 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkM
 <script>
 let allData=[], charts={}, currentRange=30;
 const TDEE=2800, GOAL=215, RATE=2, START_W=267;
+// --- Sophisticated Predicted Weight (spreadsheet model) ---
+function calcRMR(weightLbs) {
+  // Mifflin-St Jeor for male: 10*kg + 6.25*cm - 5*age + 5
+  const kg = weightLbs * 0.4536;
+  const cm = 188; // 6'2"
+  const age = 44;
+  return 10 * kg + 6.25 * cm - 5 * age + 5;
+}
+function calcBF(weightLbs) {
+  // Navy estimate approximation calibrated to spreadsheet (29.38% at 254.9, scales linearly)
+  return Math.max(5, 0.2775 * weightLbs - 41.4);
+}
+function calcPredictedWeight(data) {
+  const weights = data.filter(d => d.weight && d.weight > 150);
+  if (!weights.length) return null;
+
+  // Start from the earliest weight we have
+  let pw = weights[0].weight;
+  const startDate = weights[0].date;
+  let lastDate = startDate;
+  let weightIdx = 0;
+
+  // Walk through each day with data
+  for (const day of data) {
+    if (day.date < startDate) continue;
+
+    // Snap to actual weight when available (resets drift from water retention etc)
+    if (day.weight && day.weight > 150) {
+      pw = day.weight;
+    }
+
+    if (day.calories) {
+      // Adaptive RMR based on current predicted weight
+      const rmr = calcRMR(pw);
+      // TDEE = RMR + exercise calories (or default activity factor)
+      const exCal = day.exercise_calories || 0;
+      const activityTDEE = rmr * 1.2 + exCal; // 1.2 = sedentary multiplier + explicit exercise
+      const dailyBurn = day.calories - activityTDEE;
+      pw += dailyBurn / 3500; // 3500 cal = 1 lb
+    }
+    lastDate = day.date;
+  }
+
+  // Now project forward from last data point using recent 14-day average deficit
+  const recent = data.filter(d => d.calories).slice(-14);
+  if (recent.length >= 3) {
+    const recentDeficits = recent.map(d => {
+      const rmr = calcRMR(pw);
+      const exCal = d.exercise_calories || 0;
+      const tdee = rmr * 1.2 + exCal;
+      return tdee - d.calories;
+    });
+    const avgDailyDeficit = recentDeficits.reduce((a, b) => a + b, 0) / recentDeficits.length;
+
+    // Days since last data point to today
+    const today = new Date().toISOString().slice(0, 10);
+    const daysSinceLast = Math.max(0, (new Date(today) - new Date(lastDate)) / 864e5);
+    if (daysSinceLast > 0) {
+      pw -= (avgDailyDeficit * daysSinceLast) / 3500;
+    }
+  }
+
+  return Math.round(pw * 10) / 10;
+}
+let sparkCharts = {}; // track sparkline chart instances
 
 async function loadData(){
   allData = await (await fetch('data.json')).json();
@@ -481,6 +566,16 @@ function render(){
     document.getElementById('progressFill').style.width=pct+'%';
     const wk=Math.ceil((cw-GOAL)/RATE);
     document.getElementById('weeksNum').textContent=cw>GOAL?wk:'🎉';
+
+    // Predicted weight (sophisticated model)
+    const pw = calcPredictedWeight(allData);
+    if (pw) {
+      document.getElementById('predictedWeight').textContent = pw.toFixed(1);
+      const diff = cw - pw;
+      const arrow = diff > 0.5 ? '↓' : diff < -0.5 ? '↑' : '→';
+      const color = diff > 0.5 ? 'var(--green)' : diff < -0.5 ? 'var(--red)' : 'var(--cyan)';
+      document.getElementById('predictedSub').innerHTML = `<span style="color:${color}">${arrow} ${Math.abs(diff).toFixed(1)} from actual</span>`;
+    }
   }
   
   // KPIs
@@ -659,15 +754,96 @@ function renderCumulative(d){
 
 function renderLog(data){
   const recent=data.slice(-10).reverse();
-  document.getElementById('logList').innerHTML=recent.map(d=>{
+  // Destroy old sparkline charts
+  Object.keys(sparkCharts).forEach(k=>{try{sparkCharts[k].destroy();}catch(e){}});
+  sparkCharts={};
+
+  document.getElementById('logList').innerHTML=recent.map((d,i)=>{
     const p=[];
     if(d.weight&&d.weight>150)p.push(`⚖️ ${d.weight.toFixed(1)}`);
     if(d.calories)p.push(`🔥 ${d.calories}`);
     if(d.protein)p.push(`💪 ${Math.round(d.protein)}g`);
     if(d.sleep_score)p.push(`😴 ${d.sleep_score}`);
     const ex=d.exercises?`<div class="exercise">🏃 ${d.exercises.join(', ')} (${d.exercise_minutes}m)</div>`:'';
-    return `<div class="log-card"><div class="date">${d.date}</div><div class="stats">${p.join(' · ')||'No data'}</div>${ex}</div>`;
+
+    // Deficit calculation for this day
+    let deficitHtml='';
+    if(d.calories){
+      const rmr=calcRMR(d.weight||262);
+      const exCal=d.exercise_calories||0;
+      const tdee=Math.round(rmr*1.2+exCal);
+      const deficit=tdee-d.calories;
+      const defColor=deficit>=800?'var(--green)':deficit>=500?'var(--yellow)':deficit>0?'var(--orange)':'var(--red)';
+      deficitHtml=`<div class="detail-item"><div class="dl">Deficit</div><div class="dv" style="color:${defColor}">${deficit>=0?'-':'+'} ${Math.abs(deficit).toLocaleString()} cal</div></div>`;
+    }
+
+    // Detail section (hidden by default)
+    const detail=`<div class="log-detail">
+      <div class="detail-grid">
+        ${d.calories?`<div class="detail-item"><div class="dl">Calories</div><div class="dv">${d.calories.toLocaleString()}</div></div>`:''}
+        ${d.protein?`<div class="detail-item"><div class="dl">Protein</div><div class="dv" style="color:${d.protein>=200?'var(--green)':'var(--orange)'}">${Math.round(d.protein)}g</div></div>`:''}
+        ${d.carbs?`<div class="detail-item"><div class="dl">Carbs</div><div class="dv">${Math.round(d.carbs)}g</div></div>`:''}
+        ${d.fat?`<div class="detail-item"><div class="dl">Fat</div><div class="dv">${Math.round(d.fat)}g</div></div>`:''}
+        ${d.fiber?`<div class="detail-item"><div class="dl">Fiber</div><div class="dv">${Math.round(d.fiber)}g</div></div>`:''}
+        ${d.sodium?`<div class="detail-item"><div class="dl">Sodium</div><div class="dv">${d.sodium.toLocaleString()} mg</div></div>`:''}
+        ${d.water?`<div class="detail-item"><div class="dl">Water</div><div class="dv">${Math.round(d.water)} ml</div></div>`:''}
+        ${d.sleep_score?`<div class="detail-item"><div class="dl">Sleep Score</div><div class="dv" style="color:${d.sleep_score>=75?'var(--green)':d.sleep_score>=60?'var(--yellow)':'var(--red)'}">${d.sleep_score}/100</div></div>`:''}
+        ${d.exercise_minutes?`<div class="detail-item"><div class="dl">Exercise</div><div class="dv" style="color:var(--cyan)">${d.exercise_minutes}m · ${d.exercise_calories||0} cal</div></div>`:''}
+        ${deficitHtml}
+        ${d.weight&&d.weight>150?`<div class="detail-item"><div class="dl">Weight</div><div class="dv">${d.weight.toFixed(1)} lbs</div></div>`:''}
+        ${d.weight&&d.weight>150?`<div class="detail-item"><div class="dl">BMI (est)</div><div class="dv">${(d.weight*0.4536/(1.88*1.88)).toFixed(1)}</div></div>`:''}
+      </div>
+      <div class="trend-label">📈 7-Day Trend (ending ${d.date.slice(5)})</div>
+      <div class="detail-sparkline"><canvas id="spark-wt-${i}"></canvas></div>
+      <div class="detail-sparkline"><canvas id="spark-cal-${i}"></canvas></div>
+    </div>`;
+
+    return `<div class="log-card" data-idx="${i}" onclick="toggleLogDetail(this,${i},'${d.date}')">
+      <div class="date">${d.date}</div>
+      <div class="stats">${p.join(' · ')||'No data'}</div>${ex}${detail}
+    </div>`;
   }).join('');
+}
+
+function toggleLogDetail(el, idx, date){
+  const wasExpanded=el.classList.contains('expanded');
+  // Collapse all
+  document.querySelectorAll('#logList .log-card').forEach(c=>c.classList.remove('expanded'));
+  // Destroy old sparklines
+  Object.keys(sparkCharts).forEach(k=>{try{sparkCharts[k].destroy();}catch(e){}});
+  sparkCharts={};
+
+  if(wasExpanded) return; // was open, now closed
+  el.classList.add('expanded');
+
+  // Build 7-day window ending on this date
+  const endIdx=allData.findIndex(d=>d.date===date);
+  if(endIdx<0) return;
+  const window=allData.slice(Math.max(0,endIdx-6),endIdx+1);
+
+  // Weight sparkline
+  const wtData=window.filter(d=>d.weight&&d.weight>150);
+  if(wtData.length>=2){
+    const ctx=document.getElementById('spark-wt-'+idx);
+    if(ctx){
+      sparkCharts['wt-'+idx]=new Chart(ctx,{type:'line',data:{
+        labels:wtData.map(d=>d.date.slice(5)),
+        datasets:[{data:wtData.map(d=>d.weight),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.15)',fill:true,tension:0.4,pointRadius:3,pointBackgroundColor:'#3b82f6',borderWidth:2}]
+      },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:true}},scales:{x:{display:true,ticks:{color:'#71717a',font:{size:9}}},y:{display:true,ticks:{color:'#71717a',font:{size:9}},grid:{color:'#2a2d3a'}}}}});
+    }
+  }
+
+  // Calories sparkline
+  const calData=window.filter(d=>d.calories);
+  if(calData.length>=2){
+    const ctx=document.getElementById('spark-cal-'+idx);
+    if(ctx){
+      sparkCharts['cal-'+idx]=new Chart(ctx,{type:'bar',data:{
+        labels:calData.map(d=>d.date.slice(5)),
+        datasets:[{data:calData.map(d=>d.calories),backgroundColor:calData.map(d=>d.calories<=2000?'rgba(34,197,94,0.7)':'rgba(239,68,68,0.7)'),borderRadius:3}]
+      },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:true,ticks:{color:'#71717a',font:{size:9}}},y:{display:true,ticks:{color:'#71717a',font:{size:9}},grid:{color:'#2a2d3a'}}}}});
+    }
+  }
 }
 
 function renderDeficitLog(filtered){
